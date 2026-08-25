@@ -223,17 +223,21 @@ export function createSwarm(scene) {
 
   function queryHits(origin, forward, range, arcCos = 0.35) {
     const hits = [];
+    const ox = origin.x;
+    const oz = origin.z;
     for (let i = 0; i < capacity; i++) {
       if (!alive[i]) continue;
-      const dx = x[i] - origin.x;
-      const dz = z[i] - origin.z;
+      const dx = x[i] - ox;
+      const dz = z[i] - oz;
       const dist = Math.hypot(dx, dz);
       if (dist > range || dist < 0.01) continue;
+      // Prefer enemies in front, but allow a wide melee sweep
       const ndx = dx / dist;
       const ndz = dz / dist;
       const dot = ndx * forward.x + ndz * forward.z;
       if (dot >= arcCos) hits.push({ i, dist });
     }
+    hits.sort((a, b) => a.dist - b.dist);
     return hits;
   }
 

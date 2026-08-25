@@ -14,18 +14,17 @@ export function createCombat(player, swarm) {
 
   function light() {
     if (!player.tryAttack('light')) return 0;
-    const origin = player.hitOrigin();
+    const origin = player.position;
     const fwd = player.facingDir();
-    const hits = swarm.queryHits(origin, fwd, TUNING.lightRange, 0.2);
+    const hits = swarm.queryHits(origin, fwd, TUNING.lightRange, -0.05);
     return applyHits(hits, TUNING.lightDamage);
   }
 
   function heavy() {
     if (!player.tryAttack('heavy')) return 0;
-    const origin = player.hitOrigin();
+    const origin = player.position;
     const fwd = player.facingDir();
-    const hits = swarm.queryHits(origin, fwd, TUNING.heavyRange, 0.05);
-    // Heavy also shoves slightly via damage weight
+    const hits = swarm.queryHits(origin, fwd, TUNING.heavyRange, -0.15);
     return applyHits(hits, TUNING.heavyDamage);
   }
 
