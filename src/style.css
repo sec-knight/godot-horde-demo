@@ -51,6 +51,71 @@ body,
   left: 14px;
 }
 
+.sg-coin {
+  --coin-size: 40px;
+  width: var(--coin-size);
+  height: var(--coin-size);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+.sg-coin--lg {
+  --coin-size: 56px;
+}
+
+.sg-coin__scene {
+  width: 100%;
+  height: 100%;
+  perspective: 160px;
+}
+
+.sg-coin__spin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: sg-coin-spin 3.6s linear infinite;
+}
+
+.sg-coin__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  box-shadow: inset 0 0 0 2px rgba(17, 17, 17, 0.35);
+}
+
+.sg-coin__face img,
+.sg-coin__face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sg-coin__face--front {
+  transform: rotateY(0deg);
+}
+
+.sg-coin__face--back {
+  transform: rotateY(180deg);
+  background: radial-gradient(circle at 35% 30%, #2a2a2a 0%, #111 68%);
+}
+
+@keyframes sg-coin-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-coin__spin {
+    animation: none;
+  }
+}
+
 .bar-panel {
   position: absolute;
   left: 50%;
@@ -207,8 +272,9 @@ body,
 }
 
 .menu-logo {
-  font-size: 34px;
-  margin-bottom: 4px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
 }
 
 .menu-card h1 {
