@@ -24,7 +24,7 @@ export function createGame(canvas) {
   const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 120);
 
   const arena = createArena(scene);
-  const player = createPlayer(scene, new THREE.Vector3(0, 0, -6));
+  const player = createPlayer(scene, new THREE.Vector3(0, 0, -4));
   const swarm = createSwarm(scene);
   const combat = createCombat(player, swarm);
   const waves = createWaveController(swarm, arena);
@@ -65,9 +65,10 @@ export function createGame(canvas) {
     player.state.alive = true;
     player.state.iFrames = 0;
     player.state.vy = 0;
-    player.position.set(0, 0, -6);
-    player.state.yaw = 0;
-    player.state.pitch = 0.18;
+    player.position.set(0, 0, -4);
+    // Face the portal / incoming horde (+Z); gate sits behind the player.
+    player.state.yaw = Math.PI;
+    player.state.pitch = 0.12;
     gateHp = TUNING.gateHp;
     score = 0;
     kills = 0;

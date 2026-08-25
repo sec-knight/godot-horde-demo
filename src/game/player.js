@@ -6,6 +6,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   root.position.copy(spawn);
   root.position.y = 0;
   scene.add(root);
+  // Default facing toward +Z (portal) so the first look is into the horde.
 
   const body = new THREE.Mesh(
     new THREE.SphereGeometry(TUNING.playerRadius, 24, 18),
@@ -63,8 +64,8 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   root.add(slash);
 
   const state = {
-    yaw: 0,
-    pitch: 0.18,
+    yaw: Math.PI,
+    pitch: 0.12,
     hp: TUNING.playerHp,
     vy: 0,
     grounded: true,

@@ -151,10 +151,11 @@ export function createSwarm(scene) {
       const toPlayerZ = playerPos.z - z[i];
       const playerDist = Math.hypot(toPlayerX, toPlayerZ) || 1;
 
+      // Prefer the player when close so the horde fights you on the way to the gate.
       let dirX = toGateX / gateDist;
       let dirZ = toGateZ / gateDist;
-      if (playerDist < 7) {
-        const w = 0.35;
+      if (playerDist < 11) {
+        const w = THREE.MathUtils.clamp(1.15 - playerDist / 11, 0.25, 0.85);
         dirX = dirX * (1 - w) + (toPlayerX / playerDist) * w;
         dirZ = dirZ * (1 - w) + (toPlayerZ / playerDist) * w;
         const len = Math.hypot(dirX, dirZ) || 1;
@@ -206,9 +207,12 @@ export function createSwarm(scene) {
         onContactPlayer?.(i);
       }
       // Gate contact
-      if (gateDist < TUNING.gateSize * 0.75 && contactCd[i] <= 0) {
-        contactCd[i] = TUNING.enemyContactCooldown * 1.2;
-        onContactGate?.(i);
+      if (gateDist < TUNING.gateSize * 0.85) {
+        // Reuse contactCd but with slower gate cadence via a threshold check
+        if (contactCd[i] <= 0) {
+          contactCd[i] = TUNING.enemyGateCooldown;
+          onContactGate?.(i);
+        }
       }
     }
     if (dirty) {
