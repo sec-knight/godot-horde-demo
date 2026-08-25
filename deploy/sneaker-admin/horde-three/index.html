@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0a1018" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Horde Defense · Three.js</title>
+    <script type="module" crossorigin src="/admin/horde-three/assets/index-ChxEAvwH.js"></script>
+    <link rel="stylesheet" crossorigin href="/admin/horde-three/assets/index-9rzAAGV9.css">
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+
+      <div id="hud" class="hidden" aria-live="polite">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="40" height="40">
+            <circle cx="32" cy="32" r="30" fill="#f4f4f4" stroke="#111" stroke-width="3" />
+            <path
+              d="M20 38c2-10 8-16 12-16s10 6 12 16c-4 4-8 6-12 6s-8-2-12-6z"
+              fill="#111"
+            />
+            <circle cx="26" cy="30" r="2.5" fill="#f4f4f4" />
+            <path d="M34 28h8l-2 6h-4z" fill="#111" />
+            <text x="42" y="24" font-size="14" fill="#111">!</text>
+          </svg>
+        </div>
+
+        <div class="bar-panel gate-panel">
+          <div class="bar-label"><span>Gate</span> <span id="gate-text">500 / 500</span></div>
+          <div class="bar-track"><div id="gate-fill" class="bar-fill gate"></div></div>
+        </div>
+
+        <div class="bar-panel you-panel">
+          <div class="bar-label"><span>You</span> <span id="hp-text">100 / 100</span></div>
+          <div class="bar-track"><div id="hp-fill" class="bar-fill you"></div></div>
+        </div>
+
+        <aside class="stats-panel" aria-label="Arena run stats">
+          <h2>ARENA RUN</h2>
+          <dl>
+            <div><dt>Score</dt><dd id="stat-score">0</dd></div>
+            <div><dt>Wave</dt><dd id="stat-wave">1</dd></div>
+            <div><dt>Kills</dt><dd id="stat-kills">0</dd></div>
+            <div><dt>Time</dt><dd id="stat-time">0:00</dd></div>
+            <div><dt>Alive</dt><dd id="stat-alive">0</dd></div>
+          </dl>
+        </aside>
+
+        <div id="wave-callout" class="wave-callout hidden">
+          <div id="wave-title">WAVE 1</div>
+          <div id="wave-count">3</div>
+        </div>
+
+        <div id="hint" class="hint">Click to capture mouse · Esc releases</div>
+      </div>
+
+      <div id="menu" class="overlay">
+        <div class="menu-card">
+          <div class="menu-logo" aria-hidden="true">⚔</div>
+          <h1>HORDE DEFENSE</h1>
+          <p class="tagline">Private admin build · Three.js recreation</p>
+          <p class="blurb">
+            Hold the siege gate. A cube horde pours from the far portal in ring ranks.
+            Sword, shield, spin, slam, dodge.
+          </p>
+          <button id="btn-play" class="btn primary">Play Arena</button>
+          <p class="admin-back"><a href="/admin/" style="color:#9aa3b2;font-size:12px">← Workshop admin</a></p>
+          <div class="controls-cheat">
+            <div><kbd>WASD</kbd> move · mouse look</div>
+            <div><kbd>LMB</kbd> light · <kbd>RMB</kbd> heavy · <kbd>R</kbd> block</div>
+            <div><kbd>Q</kbd> spin · <kbd>F</kbd> slam · <kbd>Shift</kbd> dodge · <kbd>Space</kbd> jump</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="gameover" class="overlay hidden">
+        <div class="menu-card">
+          <h1 id="go-title">Game Over</h1>
+          <p id="go-flavor">You fell in battle.</p>
+          <p class="go-score">Score: <strong id="go-score">0</strong></p>
+          <p class="go-meta">
+            Kills: <span id="go-kills">0</span> · Waves cleared:
+            <span id="go-waves">0</span> · Time: <span id="go-time">0s</span>
+          </p>
+          <p class="go-best">Best: <span id="go-best">0</span></p>
+          <div class="btn-row">
+            <button id="btn-retry" class="btn primary">Retry</button>
+            <button id="btn-menu" class="btn">Main Menu</button>
+            <a class="btn" href="/admin/" style="text-decoration:none;display:inline-flex;align-items:center">Admin</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="touch" class="touch-layer hidden" aria-hidden="true">
+        <div id="stick" class="stick">
+          <div class="stick-base"></div>
+          <div class="stick-knob" id="stick-knob"></div>
+        </div>
+        <div class="touch-actions">
+          <button type="button" data-act="dodge" class="tbtn">Dodge</button>
+          <button type="button" data-act="block" class="tbtn">Block</button>
+          <button type="button" data-act="light" class="tbtn big">Light</button>
+          <button type="button" data-act="heavy" class="tbtn">Heavy</button>
+          <button type="button" data-act="spin" class="tbtn">Spin</button>
+          <button type="button" data-act="slam" class="tbtn">Slam</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

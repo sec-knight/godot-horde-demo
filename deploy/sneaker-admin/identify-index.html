@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#b99158" />
+  <title>Identify · Sneaker Games</title>
+  <link rel="icon" href="../../assets/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar parchment-panel">
+      <a class="back-link" href="../">← Admin</a>
+      <div class="brand-wrap">
+        <div class="illuminated-letter" aria-hidden="true">I</div>
+        <div>
+          <h1>Identify</h1>
+          <p class="subtitle">Read-only project observatory</p>
+        </div>
+      </div>
+      <div class="readonly-badge"><strong>v1 · READ-ONLY</strong><small>Protected by Cloudflare Access</small></div>
+    </header>
+
+    <aside class="sidebar parchment-panel">
+      <nav>
+        <button class="nav-item active"><span>⌘</span>Overview</button>
+        <button class="nav-item"><span>▤</span>Projects</button>
+        <button class="nav-item"><span>✎</span>Slices</button>
+        <button class="nav-item"><span>♟</span>Workers</button>
+        <button class="nav-item"><span>◉</span>Watcher</button>
+        <a class="nav-item" href="../horde-three/" style="text-decoration:none"><span>⚔</span>Horde Three.js</a>
+      </nav>
+      <div class="sidebar-art" aria-hidden="true">✦</div>
+    </aside>
+
+    <main class="main-grid">
+      <section class="projects parchment-panel section-card">
+        <div class="section-title"><span>PROJECTS</span><span id="projectCount"></span></div>
+        <p class="muted" id="status">Loading protected project registry…</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Project</th><th>Status</th><th>Architecture</th><th>Source</th></tr></thead>
+            <tbody id="projectRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="selected parchment-panel section-card" id="selectedProject">
+        <div class="section-title">SELECTED PROJECT</div>
+        <p class="muted">Choose a project from the registry.</p>
+      </section>
+
+      <aside class="workers parchment-panel section-card">
+        <div class="section-title">WORKER STATUS</div>
+        <div class="worker-row"><div class="worker-line"><strong>Watcher</strong><span class="status waiting">Not connected</span></div><div class="worker-desc">v1 reads a protected registry snapshot only.</div></div>
+        <div class="worker-row"><div class="worker-line"><strong>Grok Build</strong><span class="status idle">Idle</span></div><div class="worker-desc">Commissioning is intentionally disabled in v1.</div></div>
+        <div class="worker-row"><div class="worker-line"><strong>Codex</strong><span class="status idle">Idle</span></div><div class="worker-desc">Commissioning is intentionally disabled in v1.</div></div>
+      </aside>
+
+      <section class="slices parchment-panel section-card">
+        <div class="section-title">SLICES</div>
+        <div class="empty-state">
+          <strong>Architecture slice discovery is the next layer.</strong>
+          <p>Identify v1 proves the protected, cross-project dashboard and project selection flow without mutating any repository.</p>
+        </div>
+      </section>
+
+      <aside class="events parchment-panel section-card">
+        <div class="section-title">OBSERVATORY</div>
+        <div class="event-row"><strong>Security boundary</strong><p>/admin/* and /api/admin/* remain behind Cloudflare Access.</p></div>
+        <div class="event-row"><strong>Data mode</strong><p>Server-returned, read-only project registry.</p></div>
+        <div class="event-row"><strong>Next slice</strong><p>Read architecture documents and surface deterministic work items.</p></div>
+      </aside>
+    </main>
+
+    <footer class="footer parchment-panel"><span>Identify v1</span><span>Black Clover project registry</span><span id="lastRefreshed"></span></footer>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
