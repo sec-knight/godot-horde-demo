@@ -230,13 +230,13 @@ export function createSwarm(scene) {
       }
 
       if (phase[i] === PHASE_TELEGRAPH) {
-        // Lean back, squash a little — telegraph the bonk
+        // Lean WAY back, squash — readable telegraph
         const u = Math.min(1, phaseT[i] / TUNING.enemyTelegraph);
-        lean = 0.55 * u; // tip backward
-        stretchY = 1 - u * 0.12;
-        stretchXZ = 1 + u * 0.15;
-        bounce = u * 0.08;
-        // Face the player hard
+        const ease = u * u;
+        lean = 0.95 * ease;
+        stretchY = 1 - ease * 0.22;
+        stretchXZ = 1 + ease * 0.28;
+        bounce = ease * 0.15;
         facing[i] = Math.atan2(toPlayerX, toPlayerZ);
         if (phaseT[i] >= TUNING.enemyTelegraph) {
           phase[i] = PHASE_BONK;
@@ -244,11 +244,11 @@ export function createSwarm(scene) {
         }
       } else if (phase[i] === PHASE_BONK) {
         const u = Math.min(1, phaseT[i] / TUNING.enemyBonk);
-        lean = 0.55 - u * 1.15; // whip forward
-        stretchY = 0.88 + u * 0.25;
-        stretchXZ = 1.15 - u * 0.2;
-        // Lunge toward player
-        const lunge = 5.5 * (1 - u);
+        lean = 0.95 - u * 1.7; // whip from back to forward
+        stretchY = 0.78 + u * 0.4;
+        stretchXZ = 1.28 - u * 0.35;
+        bounce = (1 - u) * 0.12;
+        const lunge = 7.5 * (1 - u);
         x[i] += Math.sin(facing[i]) * lunge * dt;
         z[i] += Math.cos(facing[i]) * lunge * dt;
         if (u > 0.35 && u < 0.85 && contactCd[i] <= 0) {

@@ -156,12 +156,16 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       slashMat.opacity = Math.max(0, slashMat.opacity - dt * 4);
       // Block: plant the shield in FRONT of the body like a wall
       if (state.blocking) {
-        // Plant shield as a forward-facing wall in front of the body
-        shield.position.lerp(new THREE.Vector3(0, 0.05, 0.85), 1 - Math.pow(0.0001, dt));
+        // Plant shield as a big forward-facing wall toward the horde (+Z)
+        const target = new THREE.Vector3(0.0, 0.15, 0.95);
+        shield.position.lerp(target, 1 - Math.pow(1e-6, dt));
         shield.rotation.set(Math.PI / 2, 0, 0);
-        sword.position.lerp(new THREE.Vector3(0.55, 0.05, 0.15), 0.35);
-        sword.rotation.set(0.2, 0, 0.4);
+        shield.scale.set(1.25, 1.25, 1.25);
+        // Tuck sword back so the shield reads clearly
+        sword.position.lerp(new THREE.Vector3(0.7, -0.05, 0.05), 1 - Math.pow(0.001, dt));
+        sword.rotation.set(0.35, 0, 0.55);
       } else {
+        shield.scale.set(1, 1, 1);
         shield.position.lerp(
           new THREE.Vector3(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z),
           1 - Math.pow(0.0001, dt),
@@ -436,7 +440,18 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       state.dodgeTimer = Math.max(0, state.dodgeTimer - dt);
       state.comboTimer = Math.max(0, state.comboTimer - dt);
       if (state.comboTimer <= 0) state.comboStep = 0;
-      state.blocking = input.isBlocking() && !state.anim;
+      state.blocking = input.isBlocking();
+      // Holding block cancels a light combo anim so the shield can plant
+      if (state.blocking && state.anim && (state.anim.type === 'slashL' || state.anim.type === 'slashR' || state.anim.type === 'slashSpin' || state.anim.type === 'heavy')) {
+        state.anim = null;
+        state.pendingHits = [];
+        weaponRig.rotation.set(0, 0, 0);
+        resetWeaponPose();
+        slashMat.opacity = 0;
+      }
+      if (state.blocking && (state.anim?.type === 'spin' || state.anim?.type === 'slam' || state.anim?.type === 'dodge')) {
+        state.blocking = false; // can't block through specials
+      }
 
       const fwd = getForward();
       const right = getRight();
