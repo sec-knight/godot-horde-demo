@@ -364,6 +364,9 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     get position() {
       return root.position;
     },
+    setSpawn(spawn = { x: 0, z: -4 }) {
+      root.position.set(spawn.x ?? 0, root.position.y, spawn.z ?? -4);
+    },
     applyLook(dx, dy) {
       state.yaw -= dx * TUNING.mouseSensitivity;
       state.pitch -= dy * TUNING.mouseSensitivity;

@@ -8,6 +8,10 @@ import { createCombat } from './combat.js';
 import { createWaveController } from './waves.js';
 import { createHUD } from './hud.js';
 import { createAudio } from './audio.js';
+import { loadPreset } from '../bundle/load.js';
+import { applyBundle } from '../bundle/apply.js';
+import { getBundle, getScoring } from '../runtime/bundleState.js';
+import { createAdminStudio } from '../admin/panel.js';
 
 const BEST_KEY = 'threejs-horde-best';
 
@@ -25,7 +29,9 @@ export function createGame(canvas) {
   const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 120);
 
   const arena = createArena(scene);
-  const player = createPlayer(scene, new THREE.Vector3(0, 0, -4));
+  const bundle = loadPreset('default');
+  const spawn = bundle.world.playerSpawn;
+  const player = createPlayer(scene, new THREE.Vector3(spawn.x, 0, spawn.z));
   const swarm = createSwarm(scene);
   const audio = createAudio();
   const combat = createCombat(player, swarm, audio);
@@ -43,6 +49,29 @@ export function createGame(canvas) {
   let last = performance.now();
   let wasBlocking = false;
 
+  const bundleCtx = {
+    arena,
+    player,
+    waves,
+    swarm,
+    scene,
+    getBundle,
+    onApplied: null,
+    onApply: null,
+  };
+
+  applyBundle(bundleCtx, bundle);
+
+  bundleCtx.onApply = () => {
+    gateHp = Math.min(gateHp, TUNING.gateHp);
+    player.state.hp = Math.min(player.state.hp, TUNING.playerHp);
+  };
+
+  const admin = createAdminStudio({
+    ...bundleCtx,
+    onApply: bundleCtx.onApply,
+  });
+
   waves.on('countdown', ({ wave, value }) => {
     hud.showCallout(wave, value);
   });
@@ -50,7 +79,7 @@ export function createGame(canvas) {
     hud.hideCallout();
   });
   waves.on('cleared', () => {
-    score += 40;
+    score += getScoring().waveClearBonus ?? 40;
   });
 
   function resize() {
@@ -68,8 +97,8 @@ export function createGame(canvas) {
     player.state.alive = true;
     player.state.iFrames = 0;
     player.state.vy = 0;
-    player.position.set(0, 0, -4);
-    // Face the portal / incoming horde (+Z); gate sits behind the player.
+    const ps = getBundle().world.playerSpawn;
+    player.setSpawn(ps);
     player.state.yaw = Math.PI;
     player.state.pitch = 0.12;
     gateHp = TUNING.gateHp;
@@ -168,7 +197,6 @@ export function createGame(canvas) {
         arena.gateMesh.material.emissiveIntensity - dt * 2.5,
       );
 
-      // Passive score while the fight is on and enemies are near
       if (waves.phase === 'fighting') {
         if (swarm.aliveCount > 0) score += TUNING.scorePerSecondNear * dt;
         time += dt;
@@ -192,11 +220,9 @@ export function createGame(canvas) {
         alive: swarm.aliveCount,
       });
 
-      // Dim gate as it takes damage
       const g = gateHp / TUNING.gateHp;
       arena.gateMesh.material.color.setRGB(0.86 * (0.4 + 0.6 * g), 0.21 * g, 0.27 * g);
     } else {
-      // Idle orbit on menu — horde creeps toward the gate for atmosphere
       swarm.update(dt * 0.35, player.position, arena.gatePosition);
       const t = now * 0.00025;
       camera.position.set(Math.sin(t) * 14, 8, Math.cos(t) * 14);
@@ -224,19 +250,20 @@ export function createGame(canvas) {
 
   bindUI();
   hud.showMenu();
-  // Place a preview swarm on the menu for atmosphere
   swarm.spawnWave(18, arena.portalPosition, arena.gatePosition);
   raf = requestAnimationFrame(tick);
 
-  // Dev/test hook for automation
   globalThis.__horde = {
     player,
+    admin,
+    getBundle,
     isBlocking: () => player.state.blocking,
     shieldPos: () => ({ ...player.shield.position }),
   };
 
   return {
     start,
+    admin,
     dispose() {
       cancelAnimationFrame(raf);
       input.dispose();
