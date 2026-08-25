@@ -38,6 +38,8 @@ export const TUNING = {
   enemyBonk: 0.22,
   enemyRecover: 0.4,
   enemyKnockback: 2.8,
+  corpseLifetime: 2.8,
+  corpseBounce: 0.42,
   maxEnemies: 300,
   waveCountdown: 3,
   cameraDistance: 3.2,
@@ -88,7 +90,9 @@ export const TUNING = {
 };
 
 export function waveEnemyCount(wave) {
-  return Math.min(TUNING.maxEnemies, 8 + wave * 4);
+  // Sharper horde ramp for pressure testing: ~14 → ~28 → ~50 → ~110 by wave 5
+  const count = 4 + wave * wave * 3.2 + wave * 5;
+  return Math.min(TUNING.maxEnemies, Math.floor(count));
 }
 
 export function formatTime(seconds) {

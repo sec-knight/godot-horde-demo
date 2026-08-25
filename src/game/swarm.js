@@ -7,6 +7,9 @@ const PHASE_TELEGRAPH = 1;
 const PHASE_BONK = 2;
 const PHASE_RECOVER = 3;
 
+const ALIVE = 1;
+const CORPSE = 2;
+
 /**
  * Data-oriented cube horde rendered with InstancedMesh —
  * the Three.js analogue of Godot's MultiMesh swarm.
@@ -35,17 +38,33 @@ export function createSwarm(scene) {
   const knockX = new Float32Array(capacity);
   const knockZ = new Float32Array(capacity);
   const hurtSquash = new Float32Array(capacity);
+  const velX = new Float32Array(capacity);
+  const velY = new Float32Array(capacity);
+  const velZ = new Float32Array(capacity);
+  const spinVelX = new Float32Array(capacity);
+  const spinVelY = new Float32Array(capacity);
+  const spinVelZ = new Float32Array(capacity);
+  const rotX = new Float32Array(capacity);
+  const rotY = new Float32Array(capacity);
+  const rotZ = new Float32Array(capacity);
+  const corpseT = new Float32Array(capacity);
   const colors = new Float32Array(capacity * 3);
   mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
   mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
 
   const enemyColor = new THREE.Color(COLORS.enemy);
   const hitColor = new THREE.Color(COLORS.enemyHit);
+  const corpseColor = new THREE.Color(0x5a1520);
   const tmpColor = new THREE.Color();
 
   let liveCount = 0;
   let freeList = [];
   for (let i = capacity - 1; i >= 0; i--) freeList.push(i);
+
+  function markDirty() {
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+  }
 
   function setColor(i, color) {
     colors[i * 3] = color.r;
@@ -67,15 +86,40 @@ export function createSwarm(scene) {
     const sy = (1 + flash * 0.1) * stretchY * (1 - hurt * 0.45);
     dummy.scale.set(s, Math.max(0.35, sy), s);
     const wobbleRoll = opts.wobbleRoll ?? 0;
-    dummy.rotation.set(lean + hurt * 0.4, yaw, wobbleRoll);
+    dummy.rotation.set(lean + hurt * 0.4 + rotX[i], yaw + rotY[i], wobbleRoll + rotZ[i]);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
+  }
+
+  function hideInstance(i) {
+    dummy.position.set(0, -10, 0);
+    dummy.scale.setScalar(0);
+    dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    spinVelX[i] = 0;
+    spinVelY[i] = 0;
+    spinVelZ[i] = 0;
+    rotX[i] = 0;
+    rotY[i] = 0;
+    rotZ[i] = 0;
+    velX[i] = 0;
+    velY[i] = 0;
+    velZ[i] = 0;
+    corpseT[i] = 0;
+  }
+
+  function release(i) {
+    alive[i] = 0;
+    hideInstance(i);
+    freeList.push(i);
+    markDirty();
   }
 
   function spawnAt(px, pz) {
     if (freeList.length === 0) return -1;
     const i = freeList.pop();
-    alive[i] = 1;
+    alive[i] = ALIVE;
     x[i] = px;
     y[i] = TUNING.enemySize / 2;
     z[i] = pz;
@@ -89,22 +133,53 @@ export function createSwarm(scene) {
     knockX[i] = 0;
     knockZ[i] = 0;
     hurtSquash[i] = 0;
+    velX[i] = 0;
+    velY[i] = 0;
+    velZ[i] = 0;
+    spinVelX[i] = 0;
+    spinVelY[i] = 0;
+    spinVelZ[i] = 0;
+    rotX[i] = 0;
+    rotY[i] = 0;
+    rotZ[i] = 0;
+    corpseT[i] = 0;
     setColor(i, enemyColor);
     writeTransform(i);
     liveCount += 1;
     mesh.count = capacity;
+    markDirty();
     return i;
   }
 
-  function kill(i) {
-    if (!alive[i]) return;
-    alive[i] = 0;
+  function startCorpse(i, fromX, fromZ) {
+    if (alive[i] !== ALIVE) return;
+    alive[i] = CORPSE;
     liveCount -= 1;
-    dummy.position.set(0, -10, 0);
-    dummy.scale.setScalar(0);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    freeList.push(i);
+
+    let dx = x[i] - fromX;
+    let dz = z[i] - fromZ;
+    let len = Math.hypot(dx, dz);
+    if (len < 0.01) {
+      dx = Math.sin(facing[i] + Math.PI);
+      dz = Math.cos(facing[i] + Math.PI);
+      len = 1;
+    }
+    const dirX = dx / len;
+    const dirZ = dz / len;
+
+    velX[i] = dirX * (4.5 + Math.random() * 2.5) + knockX[i];
+    velZ[i] = dirZ * (4.5 + Math.random() * 2.5) + knockZ[i];
+    velY[i] = 4.2 + Math.random() * 2.8;
+    spinVelX[i] = (Math.random() - 0.5) * 10;
+    spinVelY[i] = (Math.random() - 0.5) * 10;
+    spinVelZ[i] = (Math.random() - 0.5) * 10;
+    corpseT[i] = TUNING.corpseLifetime;
+    hurtSquash[i] = 0;
+    hitFlash[i] = 0;
+    knockX[i] = 0;
+    knockZ[i] = 0;
+    setColor(i, corpseColor);
+    markDirty();
   }
 
   function spawnWave(count, portalPos, gatePos) {
@@ -128,26 +203,27 @@ export function createSwarm(scene) {
       ring += 1;
       if (ring > 40) break;
     }
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.instanceColor.needsUpdate = true;
     return spawned;
   }
 
   function clear() {
     for (let i = 0; i < capacity; i++) {
-      if (alive[i]) kill(i);
+      if (alive[i]) hideInstance(i);
+      alive[i] = 0;
     }
-    mesh.instanceMatrix.needsUpdate = true;
+    liveCount = 0;
+    freeList = [];
+    for (let i = capacity - 1; i >= 0; i--) freeList.push(i);
+    markDirty();
   }
 
   function damage(i, amount, fromX = null, fromZ = null) {
-    if (!alive[i]) return false;
+    if (alive[i] !== ALIVE) return false;
     hp[i] -= amount;
     hitFlash[i] = 1;
     hurtSquash[i] = 1;
     tmpColor.copy(enemyColor).lerp(hitColor, 0.85);
     setColor(i, tmpColor);
-    // Knock away from attacker
     const ox = fromX ?? x[i];
     const oz = fromZ ?? z[i];
     let dx = x[i] - ox;
@@ -165,10 +241,50 @@ export function createSwarm(scene) {
       phaseT[i] = 0;
     }
     if (hp[i] <= 0) {
-      kill(i);
+      startCorpse(i, ox, oz);
       return true;
     }
     return false;
+  }
+
+  function updateCorpse(i, dt) {
+    corpseT[i] -= dt;
+    velY[i] -= TUNING.gravity * dt;
+    x[i] += velX[i] * dt;
+    y[i] += velY[i] * dt;
+    z[i] += velZ[i] * dt;
+    rotX[i] += spinVelX[i] * dt;
+    rotY[i] += spinVelY[i] * dt;
+    rotZ[i] += spinVelZ[i] * dt;
+
+    const ground = TUNING.enemySize / 2;
+    if (y[i] <= ground) {
+      y[i] = ground;
+      if (velY[i] < -0.5) {
+        velY[i] = -velY[i] * TUNING.corpseBounce;
+        velX[i] *= 0.72;
+        velZ[i] *= 0.72;
+        spinVelX[i] *= 0.65;
+        spinVelY[i] *= 0.65;
+        spinVelZ[i] *= 0.65;
+      } else {
+        velY[i] = 0;
+        velX[i] *= Math.max(0, 1 - dt * 2.2);
+        velZ[i] *= Math.max(0, 1 - dt * 2.2);
+      }
+    }
+
+    const lim = TUNING.arenaRadius - 1;
+    const d = Math.hypot(x[i], z[i]);
+    if (d > lim) {
+      x[i] = (x[i] / d) * lim;
+      z[i] = (z[i] / d) * lim;
+      velX[i] *= -0.35;
+      velZ[i] *= -0.35;
+    }
+
+    writeTransform(i);
+    if (corpseT[i] <= 0) release(i);
   }
 
   function update(dt, playerPos, gatePos, onContactPlayer, onContactGate) {
@@ -176,12 +292,16 @@ export function createSwarm(scene) {
     const now = performance.now() * 0.001;
 
     for (let i = 0; i < capacity; i++) {
-      if (!alive[i]) continue;
+      if (alive[i] === CORPSE) {
+        updateCorpse(i, dt);
+        dirty = true;
+        continue;
+      }
+      if (alive[i] !== ALIVE) continue;
       contactCd[i] = Math.max(0, contactCd[i] - dt);
       phaseT[i] += dt;
       if (hurtSquash[i] > 0) hurtSquash[i] = Math.max(0, hurtSquash[i] - dt * 4);
 
-      // Apply knockback
       if (knockX[i] !== 0 || knockZ[i] !== 0) {
         x[i] += knockX[i] * dt;
         z[i] += knockZ[i] * dt;
@@ -216,12 +336,11 @@ export function createSwarm(scene) {
         dirZ /= len;
       }
 
-      // Separation
       let sepX = 0;
       let sepZ = 0;
       for (let s = 0; s < 8; s++) {
         const j = (i + 1 + s * 37) % capacity;
-        if (!alive[j] || j === i) continue;
+        if (alive[j] !== ALIVE || j === i) continue;
         const dx = x[i] - x[j];
         const dz = z[i] - z[j];
         const d2 = dx * dx + dz * dz;
@@ -238,7 +357,6 @@ export function createSwarm(scene) {
       dirZ /= dlen;
 
       const targetYaw = Math.atan2(dirX, dirZ);
-      // Smooth facing
       let dyaw = targetYaw - facing[i];
       while (dyaw > Math.PI) dyaw -= Math.PI * 2;
       while (dyaw < -Math.PI) dyaw += Math.PI * 2;
@@ -251,7 +369,6 @@ export function createSwarm(scene) {
       let wobbleRoll = 0;
       let moving = false;
 
-      // --- Attack state machine vs player ---
       if (phase[i] === PHASE_MOVE) {
         if (playerDist < TUNING.enemyAttackRange && contactCd[i] <= 0) {
           phase[i] = PHASE_TELEGRAPH;
@@ -262,7 +379,6 @@ export function createSwarm(scene) {
       }
 
       if (phase[i] === PHASE_TELEGRAPH) {
-        // Lean WAY back, squash — readable telegraph
         const u = Math.min(1, phaseT[i] / TUNING.enemyTelegraph);
         const ease = u * u;
         lean = 0.95 * ease;
@@ -276,7 +392,7 @@ export function createSwarm(scene) {
         }
       } else if (phase[i] === PHASE_BONK) {
         const u = Math.min(1, phaseT[i] / TUNING.enemyBonk);
-        lean = 0.95 - u * 1.7; // whip from back to forward
+        lean = 0.95 - u * 1.7;
         stretchY = 0.78 + u * 0.4;
         stretchXZ = 1.28 - u * 0.35;
         bounce = (1 - u) * 0.12;
@@ -311,7 +427,6 @@ export function createSwarm(scene) {
         x[i] += dirX * speed * dt;
         z[i] += dirZ * speed * dt;
 
-        // Cute bouncy walk: hop + squash/stretch + side wobble
         const walk = now * 7.5 + wobbleSeed[i];
         bounce = Math.abs(Math.sin(walk)) * 0.22;
         stretchY = 1 + Math.sin(walk) * 0.12;
@@ -322,7 +437,6 @@ export function createSwarm(scene) {
 
       y[i] = TUNING.enemySize / 2;
 
-      // Clamp to arena
       const lim = TUNING.arenaRadius - 1;
       const d = Math.hypot(x[i], z[i]);
       if (d > lim) {
@@ -333,17 +447,13 @@ export function createSwarm(scene) {
       writeTransform(i, { bounce, lean, stretchY, stretchXZ, wobbleRoll });
       dirty = true;
 
-      // Gate contact (still while moving / recovering)
       if (gateDist < TUNING.gateSize * 0.85 && contactCd[i] <= 0 && phase[i] === PHASE_MOVE) {
         contactCd[i] = TUNING.enemyGateCooldown;
         onContactGate?.(i);
       }
     }
 
-    if (dirty) {
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor.needsUpdate = true;
-    }
+    if (dirty) markDirty();
   }
 
   function queryHits(origin, forward, range, arcCos = 0.35) {
@@ -351,7 +461,7 @@ export function createSwarm(scene) {
     const ox = origin.x;
     const oz = origin.z;
     for (let i = 0; i < capacity; i++) {
-      if (!alive[i]) continue;
+      if (alive[i] !== ALIVE) continue;
       const dx = x[i] - ox;
       const dz = z[i] - oz;
       const dist = Math.hypot(dx, dz);
@@ -368,7 +478,7 @@ export function createSwarm(scene) {
   function queryRadius(origin, range) {
     const hits = [];
     for (let i = 0; i < capacity; i++) {
-      if (!alive[i]) continue;
+      if (alive[i] !== ALIVE) continue;
       const dist = Math.hypot(x[i] - origin.x, z[i] - origin.z);
       if (dist <= range) hits.push({ i, dist });
     }

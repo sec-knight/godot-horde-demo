@@ -62,16 +62,31 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   handle.position.y = -0.18;
   sword.add(handle);
 
-  const slashGeo = new THREE.TorusGeometry(1.35, 0.07, 6, 28, Math.PI * 0.85);
+  // Slash pivot: arc centered on local −Z (forward). Sword rides the rim; trail shows the arc.
+  const SLASH_RADIUS = 1.05;
+  const SLASH_ARC = Math.PI * 0.82;
+  const slashPivot = new THREE.Group();
+  slashPivot.position.set(0, 0.12, 0);
+  weaponRig.add(slashPivot);
+
+  const slashGeo = new THREE.RingGeometry(
+    SLASH_RADIUS - 0.12,
+    SLASH_RADIUS + 0.1,
+    32,
+    1,
+    -SLASH_ARC / 2,
+    SLASH_ARC,
+  );
   const slashMat = new THREE.MeshBasicMaterial({
     color: COLORS.slash,
     transparent: true,
     opacity: 0,
+    side: THREE.DoubleSide,
     depthWrite: false,
   });
   const slash = new THREE.Mesh(slashGeo, slashMat);
-  slash.position.set(0, 0.15, 0.55 * FWD);
-  weaponRig.add(slash);
+  slash.rotation.set(-Math.PI / 2, Math.PI / 2, 0);
+  slashPivot.add(slash);
 
   const impactGeo = new THREE.RingGeometry(0.4, 0.75, 32);
   const impactMat = new THREE.MeshBasicMaterial({
@@ -130,6 +145,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     shield.rotation.set(0, 0, Math.PI / 2);
     shield.scale.set(1, 1, 1);
     weaponRig.rotation.set(0, 0, 0);
+    slashPivot.rotation.set(0, 0, 0);
     body.scale.set(1, 1, 1);
   }
 
@@ -159,6 +175,8 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
 
     if (!state.anim) {
       slashMat.opacity = Math.max(0, slashMat.opacity - dt * 4);
+      slash.visible = slashMat.opacity > 0.02;
+      slashPivot.rotation.y = 0;
       if (state.blocking) {
         // Wall in front (local −Z)
         shield.position.set(0, 0.22, 1.1 * FWD);
@@ -188,29 +206,34 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     if (type === 'slashL' || type === 'slashR') {
       const left = type === 'slashL';
       const swing = Math.sin(u * Math.PI);
-      const start = left ? 1.1 : -1.1;
-      const end = left ? -1.1 : 1.1;
-      const yawSwing = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
-      sword.position.set(0.15, 0.1, 0.55 * FWD);
-      sword.rotation.set(0.15, 0, yawSwing * 0.55);
-      sword.rotation.x = -0.3 + swing * 0.2;
+      const halfArc = SLASH_ARC * 0.48;
+      const start = left ? halfArc : -halfArc;
+      const end = left ? -halfArc : halfArc;
+      const arcAng = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
+      slashPivot.rotation.y = arcAng;
       slash.visible = true;
-      slash.position.set(0.1, 0.05, 0.5 * FWD);
-      // Sweep across the forward plane
-      slash.rotation.set(Math.PI / 2, 0, left ? -0.9 + u * 1.8 : 0.9 - u * 1.8);
-      slashMat.opacity = swing * 0.95;
+      slashMat.opacity = swing * 0.92;
+      slash.scale.setScalar(0.92 + swing * 0.1);
+      // Sword rides the arc rim in the forward (−Z) plane
+      sword.position.set(
+        Math.sin(arcAng) * SLASH_RADIUS,
+        0.08 + swing * 0.06,
+        -Math.cos(arcAng) * SLASH_RADIUS,
+      );
+      sword.rotation.set(-0.25 + swing * 0.15, arcAng * 0.35, arcAng + Math.PI / 2);
       shield.position.set(-0.45, 0.0, 0.1 * FWD);
       shield.rotation.set(0, 0, Math.PI / 2);
     } else if (type === 'slashSpin') {
       const turns = u * Math.PI * 2;
       weaponRig.rotation.y = turns;
-      sword.position.set(0.9, 0.05, 0);
-      // Tip outward (+X from orbit center): blade +Y → +X
-      sword.rotation.set(0, 0, -Math.PI / 2);
-      shield.position.set(-0.9, 0.05, 0);
+      const orbitAng = turns + Math.PI / 2;
+      sword.position.set(Math.sin(orbitAng) * 0.95, 0.05, -Math.cos(orbitAng) * 0.95);
+      sword.rotation.set(0, 0, -Math.PI / 2 + orbitAng);
+      shield.position.set(-Math.sin(orbitAng) * 0.85, 0.05, Math.cos(orbitAng) * 0.85);
       shield.rotation.set(0, 0, Math.PI / 2);
-      slash.rotation.set(Math.PI / 2, 0, turns);
-      slash.position.set(0, 0, 0);
+      slashPivot.rotation.y = orbitAng;
+      slashPivot.position.set(0, 0.12, 0);
+      slash.visible = true;
       slashMat.opacity = 0.7 * (1 - u * 0.5);
     } else if (type === 'spin') {
       const revs = TUNING.spinRevolutions;
@@ -222,8 +245,9 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       shield.position.set(-1.25, 0.05, 0);
       shield.rotation.set(Math.PI / 2, 0, Math.PI / 2);
       slashMat.opacity = 0.55;
-      slash.rotation.set(Math.PI / 2, 0, angle);
-      slash.position.set(0, 0, 0);
+      slashPivot.rotation.y = angle;
+      slashPivot.position.set(0, 0.12, 0);
+      slash.visible = true;
       body.scale.setScalar(1 + Math.sin(angle * 2) * 0.04);
     } else if (type === 'slam') {
       const wind = TUNING.slamWindup;
@@ -269,11 +293,16 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         shield.scale.set(1.3, 1.3, 1.3);
         sword.position.set(0.6, 0, 0.1 * FWD);
       } else {
-        sword.position.set(0.3, 0.2 + swing * 0.4, 0.5 * FWD);
-        sword.rotation.set(-swing * 1.5, 0, swing * 0.3);
-        slash.position.set(0.1, 0.05, 0.5 * FWD);
-        slash.rotation.set(Math.PI / 2, 0, -0.4 + u * 1.2);
-        slashMat.opacity = swing * 0.8;
+        const heavyAng = THREE.MathUtils.lerp(-0.55, 0.65, easeOutCubic(u));
+        slashPivot.rotation.y = heavyAng;
+        slash.visible = true;
+        slashMat.opacity = swing * 0.85;
+        sword.position.set(
+          Math.sin(heavyAng) * SLASH_RADIUS * 1.08,
+          0.12 + swing * 0.35,
+          -Math.cos(heavyAng) * SLASH_RADIUS * 1.08,
+        );
+        sword.rotation.set(-swing * 1.5, heavyAng * 0.3, heavyAng + Math.PI / 2);
         shield.position.set(-0.4, 0, 0.2 * FWD);
       }
     } else if (type === 'dodge') {
@@ -287,6 +316,8 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       weaponRig.rotation.set(0, 0, 0);
       resetWeaponPose();
       slashMat.opacity = 0;
+      slash.visible = false;
+      slashPivot.rotation.y = 0;
       if (wasDodge) {
         body.material.transparent = false;
         body.material.opacity = 1;
@@ -486,8 +517,10 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         state.anim = null;
         state.pendingHits = [];
         weaponRig.rotation.set(0, 0, 0);
+        slashPivot.rotation.set(0, 0, 0);
         resetWeaponPose();
         slashMat.opacity = 0;
+        slash.visible = false;
       }
       if (state.blocking && (state.anim?.type === 'spin' || state.anim?.type === 'slam' || state.anim?.type === 'dodge')) {
         state.blocking = false;
