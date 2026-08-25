@@ -20,6 +20,8 @@ export function createSwarm(scene) {
   const mat = new THREE.MeshLambertMaterial({ color: COLORS.enemy });
   const mesh = new THREE.InstancedMesh(geo, mat, capacity);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), TUNING.arenaRadius + 2);
   mesh.count = 0;
   scene.add(mesh);
 

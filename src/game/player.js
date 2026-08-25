@@ -164,14 +164,14 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     sword.scale.set(1, 1, 1);
   }
 
-  /** Sword on horizontal arc arm — blade points radially outward like a clock hand. */
+  /** Sword on horizontal arc arm — hilt near rim, blade tip points outward (−Z local). */
   function mountSwordOnArc() {
     if (sword.parent !== slashPivot) {
       weaponRig.remove(sword);
       slashPivot.add(sword);
     }
-    sword.position.set(0, 0, -SLASH_RADIUS);
-    // Blade +Y → local +Z; at (0,0,−R) the tip extends further outward (−Z world at front)
+    // Guard sits on the arc ring; tip extends further toward enemies, hilt back toward player.
+    sword.position.set(0, 0, -(SLASH_RADIUS - 0.22));
     sword.rotation.set(-Math.PI / 2, 0, 0);
     sword.scale.set(1, 1, 1);
   }
@@ -205,6 +205,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       slash.visible = slashMat.opacity > 0.02;
       slashPivot.rotation.y = 0;
       if (state.blocking) {
+        mountSwordOnHip();
         // Wall in front (local −Z)
         shield.position.set(0, 0.22, 1.1 * FWD);
         // Caps face along forward (−Z): rotate so flat face aims forward
@@ -215,6 +216,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         sword.position.set(0.75, -0.1, 0.05 * FWD);
         sword.rotation.set(0.4, 0, 0.7);
       } else {
+        mountSwordOnHip();
         shield.material.emissive.setHex(0x000000);
         shield.material.emissiveIntensity = 0;
         shield.scale.set(1, 1, 1);
