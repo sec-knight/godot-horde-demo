@@ -72,9 +72,9 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   weaponRig.add(slashPivot);
 
   const slashGeo = new THREE.RingGeometry(
-    SLASH_RADIUS - 0.1,
-    SLASH_RADIUS + 0.08,
-    32,
+    SLASH_RADIUS - 0.14,
+    SLASH_RADIUS + 0.14,
+    40,
     1,
     Math.PI / 2 - SLASH_ARC_HALF,
     SLASH_ARC,
@@ -85,10 +85,13 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     opacity: 0,
     side: THREE.DoubleSide,
     depthWrite: false,
+    depthTest: false,
   });
   const slash = new THREE.Mesh(slashGeo, slashMat);
   slash.rotation.x = -Math.PI / 2;
   slash.position.set(0, 0.12, 0);
+  slash.renderOrder = 20;
+  slash.frustumCulled = false;
   weaponRig.add(slash);
 
   const impactGeo = new THREE.RingGeometry(0.4, 0.75, 32);
@@ -161,15 +164,15 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     sword.scale.set(1, 1, 1);
   }
 
-  /** Sword on horizontal arc arm — blade tangent to the sweep. */
+  /** Sword on horizontal arc arm — blade points radially outward like a clock hand. */
   function mountSwordOnArc() {
     if (sword.parent !== slashPivot) {
       weaponRig.remove(sword);
       slashPivot.add(sword);
     }
     sword.position.set(0, 0, -SLASH_RADIUS);
-    // Blade +Y → horizontal, pointing along sweep tangent at the forward arc point
-    sword.rotation.set(Math.PI / 2, Math.PI / 2, 0);
+    // Blade +Y → local +Z; at (0,0,−R) the tip extends further outward (−Z world at front)
+    sword.rotation.set(-Math.PI / 2, 0, 0);
     sword.scale.set(1, 1, 1);
   }
 
@@ -236,7 +239,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       const end = left ? SLASH_ARC_HALF : -SLASH_ARC_HALF;
       slashPivot.rotation.y = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
       slash.visible = true;
-      slashMat.opacity = swing * 0.92;
+      slashMat.opacity = 0.35 + swing * 0.65;
       slash.scale.setScalar(0.94 + swing * 0.08);
       shield.position.set(-0.45, 0.0, 0.1 * FWD);
       shield.rotation.set(0, 0, Math.PI / 2);
