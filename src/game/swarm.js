@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
+import { resolveObstacleCollisions, steerAroundObstacles } from './obstacles.js';
 
 /** Attack phases for cute telegraph → bonk. */
 const PHASE_MOVE = 0;
@@ -284,6 +285,14 @@ export function createSwarm(scene) {
       velX[i] *= -0.35;
       velZ[i] *= -0.35;
     }
+    const corpsePos = { x: x[i], z: z[i] };
+    resolveObstacleCollisions(corpsePos, TUNING.enemySize * 0.5);
+    if (corpsePos.x !== x[i] || corpsePos.z !== z[i]) {
+      velX[i] *= -0.25;
+      velZ[i] *= -0.25;
+    }
+    x[i] = corpsePos.x;
+    z[i] = corpsePos.z;
 
     writeTransform(i);
     if (corpseT[i] <= 0) release(i);
@@ -354,6 +363,9 @@ export function createSwarm(scene) {
       }
       dirX += sepX * 0.15;
       dirZ += sepZ * 0.15;
+      const steered = steerAroundObstacles(x[i], z[i], dirX, dirZ, TUNING.enemySize * 0.5);
+      dirX = steered.dirX;
+      dirZ = steered.dirZ;
       const dlen = Math.hypot(dirX, dirZ) || 1;
       dirX /= dlen;
       dirZ /= dlen;
@@ -445,6 +457,10 @@ export function createSwarm(scene) {
         x[i] = (x[i] / d) * lim;
         z[i] = (z[i] / d) * lim;
       }
+      const ePos = { x: x[i], z: z[i] };
+      resolveObstacleCollisions(ePos, TUNING.enemySize * 0.5);
+      x[i] = ePos.x;
+      z[i] = ePos.z;
 
       writeTransform(i, { bounce, lean, stretchY, stretchXZ, wobbleRoll });
       dirty = true;
