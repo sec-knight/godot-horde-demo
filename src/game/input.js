@@ -189,7 +189,7 @@ export function createInput(canvas) {
       return true;
     },
     isBlocking() {
-      return actions.block;
+      return actions.block || keys.has('KeyR');
     },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);

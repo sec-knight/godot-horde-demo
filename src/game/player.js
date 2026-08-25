@@ -23,7 +23,11 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
 
   const shield = new THREE.Mesh(
     new THREE.CylinderGeometry(0.55, 0.55, 0.1, 22),
-    new THREE.MeshLambertMaterial({ color: COLORS.shield }),
+    new THREE.MeshLambertMaterial({
+      color: COLORS.shield,
+      emissive: 0x000000,
+      emissiveIntensity: 0,
+    }),
   );
   // Idle: disc on the left hip (caps face ±X). Block flips it to face forward.
   shield.rotation.set(0, 0, Math.PI / 2);
@@ -156,25 +160,25 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       slashMat.opacity = Math.max(0, slashMat.opacity - dt * 4);
       // Block: plant the shield in FRONT of the body like a wall
       if (state.blocking) {
-        // Plant shield as a big forward-facing wall toward the horde (+Z)
-        const target = new THREE.Vector3(0.0, 0.15, 0.95);
-        shield.position.lerp(target, 1 - Math.pow(1e-6, dt));
+        // Snap shield to a clear forward wall toward the horde (+Z local)
+        shield.position.set(0, 0.22, 1.1);
         shield.rotation.set(Math.PI / 2, 0, 0);
-        shield.scale.set(1.25, 1.25, 1.25);
-        // Tuck sword back so the shield reads clearly
-        sword.position.lerp(new THREE.Vector3(0.7, -0.05, 0.05), 1 - Math.pow(0.001, dt));
-        sword.rotation.set(0.35, 0, 0.55);
+        shield.scale.set(1.4, 1.4, 1.4);
+        if (shield.material.emissive) {
+          shield.material.emissive.setHex(0x6a9ccc);
+          shield.material.emissiveIntensity = 0.45;
+        }
+        sword.position.set(0.75, -0.1, 0.0);
+        sword.rotation.set(0.4, 0, 0.7);
       } else {
+        if (shield.material.emissive) {
+          shield.material.emissive.setHex(0x000000);
+          shield.material.emissiveIntensity = 0;
+        }
         shield.scale.set(1, 1, 1);
-        shield.position.lerp(
-          new THREE.Vector3(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z),
-          1 - Math.pow(0.0001, dt),
-        );
+        shield.position.set(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z);
         shield.rotation.set(0, 0, Math.PI / 2);
-        sword.position.lerp(
-          new THREE.Vector3(IDLE_SWORD.x, IDLE_SWORD.y - 0.9, IDLE_SWORD.z),
-          1 - Math.pow(0.0001, dt),
-        );
+        sword.position.set(IDLE_SWORD.x, IDLE_SWORD.y - 0.9, IDLE_SWORD.z);
         sword.rotation.set(0, 0, 0);
       }
       return;
