@@ -32,6 +32,9 @@ export function createSwarm(scene) {
   const phaseT = new Float32Array(capacity);
   const facing = new Float32Array(capacity);
   const wobbleSeed = new Float32Array(capacity);
+  const knockX = new Float32Array(capacity);
+  const knockZ = new Float32Array(capacity);
+  const hurtSquash = new Float32Array(capacity);
   const colors = new Float32Array(capacity * 3);
   mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
   mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -52,17 +55,19 @@ export function createSwarm(scene) {
 
   function writeTransform(i, opts = {}) {
     const bounce = opts.bounce ?? 0;
-    const lean = opts.lean ?? 0; // + lean back, - lean forward (pitch)
+    const lean = opts.lean ?? 0;
     const stretchY = opts.stretchY ?? 1;
     const stretchXZ = opts.stretchXZ ?? 1;
     const yaw = facing[i];
+    const hurt = hurtSquash[i];
 
     dummy.position.set(x[i], y[i] + bounce, z[i]);
-    const s = (1 + hitFlash[i] * 0.22) * stretchXZ;
-    dummy.scale.set(s, (1 + hitFlash[i] * 0.1) * stretchY, s);
-    // Face movement / attack direction; add a little side wobble while walking
+    const flash = hitFlash[i];
+    const s = (1 + flash * 0.22) * stretchXZ * (1 + hurt * 0.35);
+    const sy = (1 + flash * 0.1) * stretchY * (1 - hurt * 0.45);
+    dummy.scale.set(s, Math.max(0.35, sy), s);
     const wobbleRoll = opts.wobbleRoll ?? 0;
-    dummy.rotation.set(lean, yaw, wobbleRoll);
+    dummy.rotation.set(lean + hurt * 0.4, yaw, wobbleRoll);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   }
@@ -81,6 +86,9 @@ export function createSwarm(scene) {
     phaseT[i] = Math.random() * 0.4;
     facing[i] = Math.random() * Math.PI * 2;
     wobbleSeed[i] = Math.random() * Math.PI * 2;
+    knockX[i] = 0;
+    knockZ[i] = 0;
+    hurtSquash[i] = 0;
     setColor(i, enemyColor);
     writeTransform(i);
     liveCount += 1;
@@ -132,13 +140,26 @@ export function createSwarm(scene) {
     mesh.instanceMatrix.needsUpdate = true;
   }
 
-  function damage(i, amount) {
+  function damage(i, amount, fromX = null, fromZ = null) {
     if (!alive[i]) return false;
     hp[i] -= amount;
     hitFlash[i] = 1;
+    hurtSquash[i] = 1;
     tmpColor.copy(enemyColor).lerp(hitColor, 0.85);
     setColor(i, tmpColor);
-    // Interrupt attack windup on hit
+    // Knock away from attacker
+    const ox = fromX ?? x[i];
+    const oz = fromZ ?? z[i];
+    let dx = x[i] - ox;
+    let dz = z[i] - oz;
+    let len = Math.hypot(dx, dz);
+    if (len < 0.01) {
+      dx = Math.sin(facing[i] + Math.PI);
+      dz = Math.cos(facing[i] + Math.PI);
+      len = 1;
+    }
+    knockX[i] = (dx / len) * TUNING.enemyKnockback;
+    knockZ[i] = (dz / len) * TUNING.enemyKnockback;
     if (phase[i] === PHASE_TELEGRAPH) {
       phase[i] = PHASE_MOVE;
       phaseT[i] = 0;
@@ -158,6 +179,17 @@ export function createSwarm(scene) {
       if (!alive[i]) continue;
       contactCd[i] = Math.max(0, contactCd[i] - dt);
       phaseT[i] += dt;
+      if (hurtSquash[i] > 0) hurtSquash[i] = Math.max(0, hurtSquash[i] - dt * 4);
+
+      // Apply knockback
+      if (knockX[i] !== 0 || knockZ[i] !== 0) {
+        x[i] += knockX[i] * dt;
+        z[i] += knockZ[i] * dt;
+        knockX[i] *= Math.max(0, 1 - dt * 7);
+        knockZ[i] *= Math.max(0, 1 - dt * 7);
+        if (Math.abs(knockX[i]) < 0.05) knockX[i] = 0;
+        if (Math.abs(knockZ[i]) < 0.05) knockZ[i] = 0;
+      }
 
       if (hitFlash[i] > 0) {
         hitFlash[i] = Math.max(0, hitFlash[i] - dt * 3);

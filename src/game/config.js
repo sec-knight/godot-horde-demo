@@ -37,6 +37,7 @@ export const TUNING = {
   enemyTelegraph: 0.48,
   enemyBonk: 0.22,
   enemyRecover: 0.4,
+  enemyKnockback: 2.8,
   maxEnemies: 300,
   waveCountdown: 3,
   cameraDistance: 3.2,
@@ -44,20 +45,24 @@ export const TUNING = {
   cameraLookHeight: 1.05,
   mouseSensitivity: 0.0022,
 
-  // Light = 3-hit combo: left slash, right slash, small spin
   lightDamage: 18,
   combo3Damage: 28,
   comboWindow: 0.6,
   comboStepDur: [0.3, 0.3, 0.42],
   lightRange: 3.2,
-  lightCooldown: 0.08, // per-press gate; combo window is the real limiter
+  lightCooldown: 0.08,
 
   heavyDamage: 42,
   heavyRange: 3.4,
   heavyCooldown: 0.48,
   heavyDur: 0.36,
 
-  spinDamage: 14, // per revolution
+  pushDamage: 26,
+  pushRange: 3.0,
+  pushCooldown: 0.35,
+  pushDur: 0.28,
+
+  spinDamage: 14,
   spinRevolutions: 3,
   spinRange: 3.4,
   spinCooldown: 2.6,
@@ -76,12 +81,13 @@ export const TUNING = {
   iFrameDuration: 0.35,
   jumpVelocity: 7.2,
   gravity: 22,
+  playerKnockback: 4.5,
+  hitStop: 0.06,
   scorePerKill: 12,
   scorePerSecondNear: 6,
 };
 
 export function waveEnemyCount(wave) {
-  // Wave 1 starts at 12 (matching the live demo), then ramps.
   return Math.min(TUNING.maxEnemies, 8 + wave * 4);
 }
 

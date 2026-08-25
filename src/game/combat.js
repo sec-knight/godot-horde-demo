@@ -1,14 +1,20 @@
 import { TUNING } from './config.js';
 
-export function createCombat(player, swarm) {
+export function createCombat(player, swarm, audio) {
   let shake = 0;
 
   function applyHits(hits, damage) {
     let kills = 0;
+    const px = player.position.x;
+    const pz = player.position.z;
     for (const h of hits) {
-      if (swarm.damage(h.i, damage)) kills += 1;
+      if (swarm.damage(h.i, damage, px, pz)) kills += 1;
     }
-    if (hits.length) shake = Math.min(0.4, shake + 0.05 + hits.length * 0.012);
+    if (hits.length) {
+      shake = Math.min(0.4, shake + 0.05 + hits.length * 0.012);
+      audio?.hit();
+      player.state.hitStop = Math.max(player.state.hitStop, TUNING.hitStop);
+    }
     return kills;
   }
 
@@ -23,22 +29,23 @@ export function createCombat(player, swarm) {
   }
 
   function light() {
-    player.tryLight();
+    if (player.tryLight()) audio?.slash();
   }
 
   function heavy() {
-    player.tryHeavy();
-    return 0;
+    if (player.tryHeavy()) audio?.slash();
+  }
+
+  function push() {
+    if (player.tryPush()) audio?.push();
   }
 
   function spin() {
-    player.trySpin();
-    return 0;
+    if (player.trySpin()) audio?.spin();
   }
 
   function slam() {
-    player.trySlam();
-    return 0;
+    if (player.trySlam()) audio?.slam();
   }
 
   function update(dt) {
@@ -49,6 +56,7 @@ export function createCombat(player, swarm) {
       kills += resolveHit(pulse);
       if (pulse.kind === 'radius' && pulse.damage >= TUNING.slamDamage * 0.9) {
         shake = Math.min(0.55, shake + 0.22);
+        audio?.slam();
       }
     }
     return kills;
@@ -57,11 +65,15 @@ export function createCombat(player, swarm) {
   return {
     light,
     heavy,
+    push,
     spin,
     slam,
     update,
     get shake() {
       return shake;
+    },
+    addShake(n) {
+      shake = Math.min(0.6, shake + n);
     },
   };
 }

@@ -1,8 +1,13 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
 
-const IDLE_SWORD = { x: 0.65, y: 0.9, z: 0.2 };
-const IDLE_SHIELD = { x: -0.55, y: 0.85, z: 0.15 };
+/**
+ * Movement/combat forward is local −Z (matches W / getForward).
+ * Positive Z is behind the player.
+ */
+const IDLE_SWORD = { x: 0.65, y: 0.9, z: -0.15 };
+const IDLE_SHIELD = { x: -0.55, y: 0.85, z: -0.1 };
+const FWD = -1; // local Z multiplier for “in front”
 
 export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   const root = new THREE.Group();
@@ -16,7 +21,6 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   body.position.y = TUNING.playerRadius;
   root.add(body);
 
-  // Pivots so weapons can orbit / lift cleanly
   const weaponRig = new THREE.Group();
   weaponRig.position.y = 0.9;
   root.add(weaponRig);
@@ -29,7 +33,6 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       emissiveIntensity: 0,
     }),
   );
-  // Idle: disc on the left hip (caps face ±X). Block flips it to face forward.
   shield.rotation.set(0, 0, Math.PI / 2);
   shield.position.set(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z);
   weaponRig.add(shield);
@@ -59,7 +62,6 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   handle.position.y = -0.18;
   sword.add(handle);
 
-  // Slash ribbon — vertical-ish arc that sweeps with the combo
   const slashGeo = new THREE.TorusGeometry(1.35, 0.07, 6, 28, Math.PI * 0.85);
   const slashMat = new THREE.MeshBasicMaterial({
     color: COLORS.slash,
@@ -68,10 +70,9 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     depthWrite: false,
   });
   const slash = new THREE.Mesh(slashGeo, slashMat);
-  slash.position.set(0, 0.15, 0.55);
+  slash.position.set(0, 0.15, 0.55 * FWD);
   weaponRig.add(slash);
 
-  // Slam impact ring on the ground (world-parented under root)
   const impactGeo = new THREE.RingGeometry(0.4, 0.75, 32);
   const impactMat = new THREE.MeshBasicMaterial({
     color: COLORS.impact,
@@ -94,12 +95,16 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     blocking: false,
     iFrames: 0,
     dodgeTimer: 0,
+    hitStop: 0,
+    knockX: 0,
+    knockZ: 0,
     anim: null,
     comboStep: 0,
     comboTimer: 0,
-    cooldowns: { light: 0, heavy: 0, spin: 0, slam: 0, dodge: 0 },
+    cooldowns: { light: 0, heavy: 0, push: 0, spin: 0, slam: 0, dodge: 0 },
     alive: true,
-    pendingHits: [], // { kind, damage, range, arc, radius? }
+    pendingHits: [],
+    cameraMode: 0, // 0 shoulder, 1 high, 2 close
   };
 
   const _fwd = new THREE.Vector3();
@@ -107,6 +112,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   const _wish = new THREE.Vector3();
 
   function getForward() {
+    // Local −Z after root.rotation.y = yaw
     _fwd.set(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
     return _fwd;
   }
@@ -127,10 +133,6 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     body.scale.set(1, 1, 1);
   }
 
-  function queueHit(hit, atNorm) {
-    state.pendingHits.push({ ...hit, at: atNorm, fired: false });
-  }
-
   function startAnim(spec) {
     state.anim = { ...spec, t: 0 };
     state.pendingHits = (spec.hits || []).map((h) => ({ ...h, fired: false }));
@@ -149,7 +151,6 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     body.position.y = TUNING.playerRadius + bob;
     root.rotation.y = state.yaw;
 
-    // Fade impact ring
     if (impactMat.opacity > 0) {
       impactMat.opacity = Math.max(0, impactMat.opacity - dt * 2.2);
       const grow = 1 + (1 - impactMat.opacity) * 2.8;
@@ -158,23 +159,19 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
 
     if (!state.anim) {
       slashMat.opacity = Math.max(0, slashMat.opacity - dt * 4);
-      // Block: plant the shield in FRONT of the body like a wall
       if (state.blocking) {
-        // Snap shield to a clear forward wall toward the horde (+Z local)
-        shield.position.set(0, 0.22, 1.1);
+        // Wall in front (local −Z)
+        shield.position.set(0, 0.22, 1.1 * FWD);
+        // Caps face along forward (−Z): rotate so flat face aims forward
         shield.rotation.set(Math.PI / 2, 0, 0);
         shield.scale.set(1.4, 1.4, 1.4);
-        if (shield.material.emissive) {
-          shield.material.emissive.setHex(0x6a9ccc);
-          shield.material.emissiveIntensity = 0.45;
-        }
-        sword.position.set(0.75, -0.1, 0.0);
+        shield.material.emissive.setHex(0x6a9ccc);
+        shield.material.emissiveIntensity = 0.45;
+        sword.position.set(0.75, -0.1, 0.05 * FWD);
         sword.rotation.set(0.4, 0, 0.7);
       } else {
-        if (shield.material.emissive) {
-          shield.material.emissive.setHex(0x000000);
-          shield.material.emissiveIntensity = 0;
-        }
+        shield.material.emissive.setHex(0x000000);
+        shield.material.emissiveIntensity = 0;
         shield.scale.set(1, 1, 1);
         shield.position.set(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z);
         shield.rotation.set(0, 0, Math.PI / 2);
@@ -191,63 +188,59 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     if (type === 'slashL' || type === 'slashR') {
       const left = type === 'slashL';
       const swing = Math.sin(u * Math.PI);
-      // Horizontal cut across the front
-      const startZ = left ? 1.1 : -1.1;
-      const endZ = left ? -1.1 : 1.1;
-      const yawSwing = THREE.MathUtils.lerp(startZ, endZ, easeOutCubic(u));
-      sword.position.set(0.15 + Math.abs(yawSwing) * 0.05, 0.1, 0.55);
+      const start = left ? 1.1 : -1.1;
+      const end = left ? -1.1 : 1.1;
+      const yawSwing = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
+      sword.position.set(0.15, 0.1, 0.55 * FWD);
       sword.rotation.set(0.15, 0, yawSwing * 0.55);
       sword.rotation.x = -0.3 + swing * 0.2;
-      // Ribbon faces the cut plane and sweeps
       slash.visible = true;
+      slash.position.set(0.1, 0.05, 0.5 * FWD);
+      // Sweep across the forward plane
       slash.rotation.set(Math.PI / 2, 0, left ? -0.9 + u * 1.8 : 0.9 - u * 1.8);
-      slash.position.set(0.1, 0.05, 0.5);
       slashMat.opacity = swing * 0.95;
-      // Keep shield tucked
-      shield.position.set(-0.45, 0.0, 0.1);
-      shield.rotation.set(Math.PI / 2, 0, 0);
+      shield.position.set(-0.45, 0.0, 0.1 * FWD);
+      shield.rotation.set(0, 0, Math.PI / 2);
     } else if (type === 'slashSpin') {
-      // Small finishing twirl with both weapons slightly out
       const turns = u * Math.PI * 2;
       weaponRig.rotation.y = turns;
-      sword.position.set(0.85, 0.05, 0.1);
-      sword.rotation.set(0.2, 0, 0.3);
-      shield.position.set(-0.85, 0.05, 0.1);
+      sword.position.set(0.9, 0.05, 0);
+      // Tip outward (+X from orbit center): blade +Y → +X
+      sword.rotation.set(0, 0, -Math.PI / 2);
+      shield.position.set(-0.9, 0.05, 0);
       shield.rotation.set(0, 0, Math.PI / 2);
       slash.rotation.set(Math.PI / 2, 0, turns);
+      slash.position.set(0, 0, 0);
       slashMat.opacity = 0.7 * (1 - u * 0.5);
     } else if (type === 'spin') {
-      // Arms out — sword right, shield left — orbit several times
       const revs = TUNING.spinRevolutions;
       const angle = u * Math.PI * 2 * revs;
       weaponRig.rotation.y = angle;
-      sword.position.set(1.15, 0.05, 0);
-      sword.rotation.set(0.1, 0, Math.PI / 2);
-      shield.position.set(-1.15, 0.05, 0);
+      // Arms out on ±X; blade tips point radially out
+      sword.position.set(1.25, 0.05, 0);
+      sword.rotation.set(0, 0, -Math.PI / 2);
+      shield.position.set(-1.25, 0.05, 0);
       shield.rotation.set(Math.PI / 2, 0, Math.PI / 2);
       slashMat.opacity = 0.55;
       slash.rotation.set(Math.PI / 2, 0, angle);
       slash.position.set(0, 0, 0);
-      // Flash body a little so the spin reads
       body.scale.setScalar(1 + Math.sin(angle * 2) * 0.04);
     } else if (type === 'slam') {
       const wind = TUNING.slamWindup;
       const slamT = TUNING.slamSlam;
-      const total = wind + slamT + TUNING.slamRecover;
       const t = state.anim.t;
       if (t < wind) {
         const w = easeOutCubic(t / wind);
-        // Lift both weapons overhead
-        sword.position.set(0.25, 0.2 + w * 1.1, 0.1);
+        sword.position.set(0.25, 0.2 + w * 1.1, 0.1 * FWD);
         sword.rotation.set(-1.4 * w, 0, 0.2);
-        shield.position.set(-0.25, 0.15 + w * 1.0, 0.05);
+        shield.position.set(-0.25, 0.15 + w * 1.0, 0.05 * FWD);
         shield.rotation.set(-0.4 * w, 0, Math.PI / 2);
         body.scale.set(1, 1 + w * 0.12, 1);
       } else if (t < wind + slamT) {
         const s = easeInCubic((t - wind) / slamT);
-        sword.position.set(0.2, 1.3 - s * 1.5, 0.35);
+        sword.position.set(0.2, 1.3 - s * 1.5, 0.35 * FWD);
         sword.rotation.set(-1.4 + s * 2.2, 0, 0);
-        shield.position.set(-0.2, 1.15 - s * 1.35, 0.3);
+        shield.position.set(-0.2, 1.15 - s * 1.35, 0.3 * FWD);
         shield.rotation.set(-0.4 + s * 1.2, 0, Math.PI / 2);
         body.scale.set(1 + s * 0.2, 1.12 - s * 0.25, 1 + s * 0.2);
         if (s > 0.85 && impactMat.opacity < 0.1) {
@@ -267,13 +260,22 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         body.scale.setScalar(1);
       }
       slashMat.opacity = 0;
-    } else if (type === 'heavy') {
+    } else if (type === 'heavy' || type === 'push') {
       const swing = Math.sin(u * Math.PI);
-      sword.position.set(0.3, 0.2 + swing * 0.4, 0.5);
-      sword.rotation.set(-swing * 1.5, 0, swing * 0.3);
-      slash.rotation.set(Math.PI / 2, 0, -0.4 + u * 1.2);
-      slashMat.opacity = swing * 0.8;
-      shield.position.set(-0.4, 0, 0.2);
+      if (type === 'push') {
+        // Shield bash forward
+        shield.position.set(0, 0.15, (0.4 + swing * 0.9) * FWD);
+        shield.rotation.set(Math.PI / 2, 0, 0);
+        shield.scale.set(1.3, 1.3, 1.3);
+        sword.position.set(0.6, 0, 0.1 * FWD);
+      } else {
+        sword.position.set(0.3, 0.2 + swing * 0.4, 0.5 * FWD);
+        sword.rotation.set(-swing * 1.5, 0, swing * 0.3);
+        slash.position.set(0.1, 0.05, 0.5 * FWD);
+        slash.rotation.set(Math.PI / 2, 0, -0.4 + u * 1.2);
+        slashMat.opacity = swing * 0.8;
+        shield.position.set(-0.4, 0, 0.2 * FWD);
+      }
     } else if (type === 'dodge') {
       body.material.transparent = true;
       body.material.opacity = 0.4 + 0.6 * Math.abs(Math.sin(u * Math.PI * 4));
@@ -321,20 +323,20 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       state.pitch -= dy * TUNING.mouseSensitivity;
       state.pitch = THREE.MathUtils.clamp(state.pitch, -0.35, 0.55);
     },
-    /** Light attack advances the 3-hit combo. */
+    cycleCamera() {
+      state.cameraMode = (state.cameraMode + 1) % 3;
+      return state.cameraMode;
+    },
     tryLight() {
       if (!state.alive || state.dodgeTimer > 0) return false;
       if (state.cooldowns.light > 0) return false;
-      // Don't interrupt spin/slam
       if (state.anim && (state.anim.type === 'spin' || state.anim.type === 'slam')) return false;
-
       if (state.comboTimer <= 0) state.comboStep = 0;
       const step = state.comboStep % 3;
       const dur = TUNING.comboStepDur[step];
       state.cooldowns.light = TUNING.lightCooldown;
       state.comboTimer = TUNING.comboWindow;
       state.comboStep = step + 1;
-
       if (step === 0) {
         startAnim({
           type: 'slashL',
@@ -371,6 +373,17 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         type: 'heavy',
         dur: TUNING.heavyDur,
         hits: [{ kind: 'arc', damage: TUNING.heavyDamage, range: TUNING.heavyRange, arc: -0.15, at: 0.45 }],
+      });
+      return true;
+    },
+    tryPush() {
+      if (!state.alive || state.cooldowns.push > 0) return false;
+      if (state.anim && (state.anim.type === 'spin' || state.anim.type === 'slam')) return false;
+      state.cooldowns.push = TUNING.pushCooldown;
+      startAnim({
+        type: 'push',
+        dur: TUNING.pushDur,
+        hits: [{ kind: 'arc', damage: TUNING.pushDamage, range: TUNING.pushRange, arc: -0.2, at: 0.35 }],
       });
       return true;
     },
@@ -419,23 +432,39 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       state.grounded = false;
       return true;
     },
-    takeDamage(amount) {
+    takeDamage(amount, fromX = 0, fromZ = 0) {
       if (!state.alive || state.iFrames > 0) return 0;
       let dmg = amount;
       if (state.blocking) dmg *= 0.28;
       state.hp = Math.max(0, state.hp - dmg);
       state.iFrames = state.blocking ? 0.15 : 0.4;
-      body.material.emissiveIntensity = 0.6;
+      state.hitStop = TUNING.hitStop;
+      // Knock player away from source
+      const dx = root.position.x - fromX;
+      const dz = root.position.z - fromZ;
+      const len = Math.hypot(dx, dz) || 1;
+      const force = state.blocking ? TUNING.playerKnockback * 0.35 : TUNING.playerKnockback;
+      state.knockX = (dx / len) * force;
+      state.knockZ = (dz / len) * force;
+      body.material.emissiveIntensity = 0.7;
       body.material.emissive.setHex(0xff2222);
       setTimeout(() => {
         body.material.emissiveIntensity = 0;
-      }, 80);
+      }, 90);
       if (state.hp <= 0) state.alive = false;
       return dmg;
     },
     consumeHits,
     update(dt, input, clampFn) {
       if (!state.alive) return;
+
+      if (state.hitStop > 0) {
+        state.hitStop = Math.max(0, state.hitStop - dt);
+        // Still tick i-frames / visuals lightly
+        state.iFrames = Math.max(0, state.iFrames - dt);
+        updateVisuals(dt * 0.2);
+        return;
+      }
 
       for (const k of Object.keys(state.cooldowns)) {
         state.cooldowns[k] = Math.max(0, state.cooldowns[k] - dt);
@@ -444,9 +473,16 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       state.dodgeTimer = Math.max(0, state.dodgeTimer - dt);
       state.comboTimer = Math.max(0, state.comboTimer - dt);
       if (state.comboTimer <= 0) state.comboStep = 0;
+
       state.blocking = input.isBlocking();
-      // Holding block cancels a light combo anim so the shield can plant
-      if (state.blocking && state.anim && (state.anim.type === 'slashL' || state.anim.type === 'slashR' || state.anim.type === 'slashSpin' || state.anim.type === 'heavy')) {
+      if (
+        state.blocking &&
+        state.anim &&
+        (state.anim.type === 'slashL' ||
+          state.anim.type === 'slashR' ||
+          state.anim.type === 'slashSpin' ||
+          state.anim.type === 'heavy')
+      ) {
         state.anim = null;
         state.pendingHits = [];
         weaponRig.rotation.set(0, 0, 0);
@@ -454,7 +490,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
         slashMat.opacity = 0;
       }
       if (state.blocking && (state.anim?.type === 'spin' || state.anim?.type === 'slam' || state.anim?.type === 'dodge')) {
-        state.blocking = false; // can't block through specials
+        state.blocking = false;
       }
 
       const fwd = getForward();
@@ -467,11 +503,15 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       let speed = TUNING.playerSpeed;
       if (state.dodgeTimer > 0) speed *= TUNING.dodgeSpeedMul;
       if (state.blocking) speed *= 0.55;
-      if (state.anim && (state.anim.type === 'slam' || state.anim.type === 'heavy')) speed *= 0.35;
+      if (state.anim && (state.anim.type === 'slam' || state.anim.type === 'heavy' || state.anim.type === 'push')) {
+        speed *= 0.35;
+      }
       if (state.anim && state.anim.type === 'spin') speed *= 0.7;
 
-      root.position.x += _wish.x * speed * dt;
-      root.position.z += _wish.z * speed * dt;
+      root.position.x += _wish.x * speed * dt + state.knockX * dt;
+      root.position.z += _wish.z * speed * dt + state.knockZ * dt;
+      state.knockX *= Math.max(0, 1 - dt * 8);
+      state.knockZ *= Math.max(0, 1 - dt * 8);
 
       state.vy -= TUNING.gravity * dt;
       root.position.y += state.vy * dt;
@@ -493,15 +533,27 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
 export function updateCamera(camera, player, dt) {
   const yaw = player.state.yaw;
   const pitch = player.state.pitch;
-  const dist = TUNING.cameraDistance;
+  const mode = player.state.cameraMode;
+  let dist = TUNING.cameraDistance;
+  let height = TUNING.cameraHeight;
+  let lookH = TUNING.cameraLookHeight;
+  if (mode === 1) {
+    dist = 5.2;
+    height = 3.4;
+    lookH = 0.6;
+  } else if (mode === 2) {
+    dist = 2.2;
+    height = 1.25;
+    lookH = 1.15;
+  }
   const target = new THREE.Vector3(
     player.position.x,
-    player.position.y + TUNING.cameraLookHeight,
+    player.position.y + lookH,
     player.position.z,
   );
   const offset = new THREE.Vector3(
     Math.sin(yaw) * dist * Math.cos(pitch),
-    TUNING.cameraHeight + Math.sin(pitch) * dist,
+    height + Math.sin(pitch) * dist,
     Math.cos(yaw) * dist * Math.cos(pitch),
   );
   const desired = target.clone().add(offset);
