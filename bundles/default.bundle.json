@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "foundation": {
+    "id": "default",
+    "name": "Default Arena",
+    "author": "sec-knight",
+    "description": "Shipped horde defense layout — gate behind player, portal far +Z, west berm.",
+    "tags": ["official"]
+  },
+  "world": {
+    "arenaRadius": 28,
+    "playerSpawn": { "x": 0, "z": -4 },
+    "gate": { "x": 0, "z": -23.5, "size": 2.4 },
+    "portal": { "x": 0, "z": 24.5 },
+    "obstacles": [
+      {
+        "id": "westBerm",
+        "kind": "berm",
+        "x": -18,
+        "z": -6,
+        "radius": 9.2,
+        "visualRadius": 10
+      }
+    ],
+    "environment": {
+      "sky": "#a9c4d8",
+      "ground": "#4f8a3c",
+      "fogNear": 42,
+      "fogFar": 70
+    }
+  },
+  "things": {
+    "player": { "hp": 100, "radius": 0.55, "speed": 8.5 },
+    "gate": { "hp": 500 },
+    "enemy": {
+      "hp": 20,
+      "size": 1.1,
+      "speed": 2.6,
+      "contactDamage": 9,
+      "gateDamage": 1.2,
+      "knockback": 2.8
+    },
+    "weapons": {
+      "light": { "damage": 18, "range": 3.2, "cooldown": 0.08 },
+      "comboFinisher": { "damage": 28 },
+      "heavy": { "damage": 42, "range": 3.4, "cooldown": 0.48 },
+      "push": { "damage": 26, "range": 3.0, "cooldown": 0.35 },
+      "spin": { "damage": 14, "range": 3.4, "revolutions": 3, "cooldown": 2.6 },
+      "slam": { "damage": 55, "range": 4.2, "cooldown": 3.2 }
+    },
+    "shield": { "blockDamageMul": 0.28 }
+  },
+  "actors": {
+    "player": {
+      "knockback": 4.5,
+      "hitStop": 0.06,
+      "dodgeCooldown": 0.85,
+      "dodgeDuration": 0.28,
+      "iFrameDuration": 0.35,
+      "jumpVelocity": 7.2,
+      "gravity": 22,
+      "mouseSensitivity": 0.0022
+    },
+    "camera": { "distance": 3.2, "height": 1.55, "lookHeight": 1.05 },
+    "horde": {
+      "maxEnemies": 300,
+      "contactCooldown": 0.8,
+      "gateContactCooldown": 1.2,
+      "attackRange": 1.55,
+      "telegraph": 0.48,
+      "bonk": 0.22,
+      "recover": 0.4
+    },
+    "corpse": { "lifetime": 2.8, "bounce": 0.42 }
+  },
+  "events": {
+    "waveCountdown": 3,
+    "betweenWavePause": 1.4,
+    "waveCount": {
+      "kind": "quadratic",
+      "base": 4,
+      "quadratic": 3.2,
+      "linear": 5,
+      "cap": 300
+    },
+    "scoring": {
+      "perKill": 12,
+      "perSecondNear": 6,
+      "waveClearBonus": 40
+    },
+    "spawn": {
+      "ringBaseRadius": 2.2,
+      "ringSpacing": 1.7,
+      "ringGrowth": 4
+    }
+  }
+}
