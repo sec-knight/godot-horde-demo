@@ -62,19 +62,21 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   handle.position.y = -0.18;
   sword.add(handle);
 
-  // Slash pivot: arc centered on local −Z (forward). Sword rides the rim; trail shows the arc.
-  const SLASH_RADIUS = 1.05;
-  const SLASH_ARC = Math.PI * 0.82;
+  // Horizontal slash arc: sword orbits on slashPivot; trail shows the fixed semicircle ahead.
+  const SLASH_RADIUS = 1.15;
+  const SLASH_ARC = Math.PI * 0.92;
+  const SLASH_ARC_HALF = SLASH_ARC / 2;
+
   const slashPivot = new THREE.Group();
   slashPivot.position.set(0, 0.12, 0);
   weaponRig.add(slashPivot);
 
   const slashGeo = new THREE.RingGeometry(
-    SLASH_RADIUS - 0.12,
-    SLASH_RADIUS + 0.1,
+    SLASH_RADIUS - 0.1,
+    SLASH_RADIUS + 0.08,
     32,
     1,
-    -SLASH_ARC / 2,
+    Math.PI / 2 - SLASH_ARC_HALF,
     SLASH_ARC,
   );
   const slashMat = new THREE.MeshBasicMaterial({
@@ -85,8 +87,9 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     depthWrite: false,
   });
   const slash = new THREE.Mesh(slashGeo, slashMat);
-  slash.rotation.set(-Math.PI / 2, Math.PI / 2, 0);
-  slashPivot.add(slash);
+  slash.rotation.x = -Math.PI / 2;
+  slash.position.set(0, 0.12, 0);
+  weaponRig.add(slash);
 
   const impactGeo = new THREE.RingGeometry(0.4, 0.75, 32);
   const impactMat = new THREE.MeshBasicMaterial({
@@ -138,15 +141,36 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   }
 
   function resetWeaponPose() {
-    sword.position.set(IDLE_SWORD.x, IDLE_SWORD.y - 0.9, IDLE_SWORD.z);
-    sword.rotation.set(0, 0, 0);
-    sword.scale.set(1, 1, 1);
+    mountSwordOnHip();
     shield.position.set(IDLE_SHIELD.x, IDLE_SHIELD.y - 0.9, IDLE_SHIELD.z);
     shield.rotation.set(0, 0, Math.PI / 2);
     shield.scale.set(1, 1, 1);
     weaponRig.rotation.set(0, 0, 0);
     slashPivot.rotation.set(0, 0, 0);
     body.scale.set(1, 1, 1);
+  }
+
+  /** Sword on hip (idle / block). */
+  function mountSwordOnHip() {
+    if (sword.parent !== weaponRig) {
+      slashPivot.remove(sword);
+      weaponRig.add(sword);
+    }
+    sword.position.set(IDLE_SWORD.x, IDLE_SWORD.y - 0.9, IDLE_SWORD.z);
+    sword.rotation.set(0, 0, 0);
+    sword.scale.set(1, 1, 1);
+  }
+
+  /** Sword on horizontal arc arm — blade tangent to the sweep. */
+  function mountSwordOnArc() {
+    if (sword.parent !== slashPivot) {
+      weaponRig.remove(sword);
+      slashPivot.add(sword);
+    }
+    sword.position.set(0, 0, -SLASH_RADIUS);
+    // Blade +Y → horizontal, pointing along sweep tangent at the forward arc point
+    sword.rotation.set(Math.PI / 2, Math.PI / 2, 0);
+    sword.scale.set(1, 1, 1);
   }
 
   function startAnim(spec) {
@@ -206,50 +230,39 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     if (type === 'slashL' || type === 'slashR') {
       const left = type === 'slashL';
       const swing = Math.sin(u * Math.PI);
-      const halfArc = SLASH_ARC * 0.48;
-      const start = left ? halfArc : -halfArc;
-      const end = left ? -halfArc : halfArc;
-      const arcAng = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
-      slashPivot.rotation.y = arcAng;
+      mountSwordOnArc();
+      // Half-circle wipe: right (+X) → front (−Z) → left (−X), or reverse
+      const start = left ? SLASH_ARC_HALF : -SLASH_ARC_HALF;
+      const end = left ? -SLASH_ARC_HALF : SLASH_ARC_HALF;
+      slashPivot.rotation.y = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
       slash.visible = true;
       slashMat.opacity = swing * 0.92;
-      slash.scale.setScalar(0.92 + swing * 0.1);
-      // Sword rides the arc rim in the forward (−Z) plane
-      sword.position.set(
-        Math.sin(arcAng) * SLASH_RADIUS,
-        0.08 + swing * 0.06,
-        -Math.cos(arcAng) * SLASH_RADIUS,
-      );
-      sword.rotation.set(-0.25 + swing * 0.15, arcAng * 0.35, arcAng + Math.PI / 2);
+      slash.scale.setScalar(0.94 + swing * 0.08);
       shield.position.set(-0.45, 0.0, 0.1 * FWD);
       shield.rotation.set(0, 0, Math.PI / 2);
     } else if (type === 'slashSpin') {
       const turns = u * Math.PI * 2;
+      mountSwordOnArc();
       weaponRig.rotation.y = turns;
-      const orbitAng = turns + Math.PI / 2;
-      sword.position.set(Math.sin(orbitAng) * 0.95, 0.05, -Math.cos(orbitAng) * 0.95);
-      sword.rotation.set(0, 0, -Math.PI / 2 + orbitAng);
-      shield.position.set(-Math.sin(orbitAng) * 0.85, 0.05, Math.cos(orbitAng) * 0.85);
-      shield.rotation.set(0, 0, Math.PI / 2);
-      slashPivot.rotation.y = orbitAng;
-      slashPivot.position.set(0, 0.12, 0);
+      slashPivot.rotation.y = 0;
       slash.visible = true;
       slashMat.opacity = 0.7 * (1 - u * 0.5);
+      shield.position.set(-0.85, 0.05, 0.05 * FWD);
+      shield.rotation.set(0, 0, Math.PI / 2);
     } else if (type === 'spin') {
+      mountSwordOnHip();
       const revs = TUNING.spinRevolutions;
       const angle = u * Math.PI * 2 * revs;
       weaponRig.rotation.y = angle;
-      // Arms out on ±X; blade tips point radially out
       sword.position.set(1.25, 0.05, 0);
       sword.rotation.set(0, 0, -Math.PI / 2);
       shield.position.set(-1.25, 0.05, 0);
       shield.rotation.set(Math.PI / 2, 0, Math.PI / 2);
       slashMat.opacity = 0.55;
-      slashPivot.rotation.y = angle;
-      slashPivot.position.set(0, 0.12, 0);
       slash.visible = true;
       body.scale.setScalar(1 + Math.sin(angle * 2) * 0.04);
     } else if (type === 'slam') {
+      mountSwordOnHip();
       const wind = TUNING.slamWindup;
       const slamT = TUNING.slamSlam;
       const t = state.anim.t;
@@ -287,22 +300,19 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     } else if (type === 'heavy' || type === 'push') {
       const swing = Math.sin(u * Math.PI);
       if (type === 'push') {
+        mountSwordOnHip();
         // Shield bash forward
         shield.position.set(0, 0.15, (0.4 + swing * 0.9) * FWD);
         shield.rotation.set(Math.PI / 2, 0, 0);
         shield.scale.set(1.3, 1.3, 1.3);
         sword.position.set(0.6, 0, 0.1 * FWD);
       } else {
-        const heavyAng = THREE.MathUtils.lerp(-0.55, 0.65, easeOutCubic(u));
-        slashPivot.rotation.y = heavyAng;
+        mountSwordOnArc();
+        const start = -SLASH_ARC_HALF * 0.55;
+        const end = SLASH_ARC_HALF * 0.65;
+        slashPivot.rotation.y = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
         slash.visible = true;
         slashMat.opacity = swing * 0.85;
-        sword.position.set(
-          Math.sin(heavyAng) * SLASH_RADIUS * 1.08,
-          0.12 + swing * 0.35,
-          -Math.cos(heavyAng) * SLASH_RADIUS * 1.08,
-        );
-        sword.rotation.set(-swing * 1.5, heavyAng * 0.3, heavyAng + Math.PI / 2);
         shield.position.set(-0.4, 0, 0.2 * FWD);
       }
     } else if (type === 'dodge') {
