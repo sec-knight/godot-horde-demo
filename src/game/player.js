@@ -232,8 +232,8 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
       const swing = Math.sin(u * Math.PI);
       mountSwordOnArc();
       // Half-circle wipe: right (+X) → front (−Z) → left (−X), or reverse
-      const start = left ? SLASH_ARC_HALF : -SLASH_ARC_HALF;
-      const end = left ? -SLASH_ARC_HALF : SLASH_ARC_HALF;
+      const start = left ? -SLASH_ARC_HALF : SLASH_ARC_HALF;
+      const end = left ? SLASH_ARC_HALF : -SLASH_ARC_HALF;
       slashPivot.rotation.y = THREE.MathUtils.lerp(start, end, easeOutCubic(u));
       slash.visible = true;
       slashMat.opacity = swing * 0.92;
