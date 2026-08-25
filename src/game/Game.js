@@ -209,6 +209,13 @@ export function createGame(canvas) {
   swarm.spawnWave(18, arena.portalPosition, arena.gatePosition);
   raf = requestAnimationFrame(tick);
 
+  // Dev/test hook for automation
+  globalThis.__horde = {
+    player,
+    isBlocking: () => player.state.blocking,
+    shieldPos: () => ({ ...player.shield.position }),
+  };
+
   return {
     start,
     dispose() {

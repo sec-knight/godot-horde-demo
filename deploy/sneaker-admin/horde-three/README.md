@@ -1,1 +1,1 @@
-# Admin build of Three.js Horde Defense
+# Admin build — copy into sneaker.games/admin/horde-three/
