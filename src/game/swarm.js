@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
 
+/** Attack phases for cute telegraph → bonk. */
+const PHASE_MOVE = 0;
+const PHASE_TELEGRAPH = 1;
+const PHASE_BONK = 2;
+const PHASE_RECOVER = 3;
+
 /**
  * Data-oriented cube horde rendered with InstancedMesh —
  * the Three.js analogue of Godot's MultiMesh swarm.
@@ -22,6 +28,10 @@ export function createSwarm(scene) {
   const hp = new Float32Array(capacity);
   const hitFlash = new Float32Array(capacity);
   const contactCd = new Float32Array(capacity);
+  const phase = new Uint8Array(capacity);
+  const phaseT = new Float32Array(capacity);
+  const facing = new Float32Array(capacity);
+  const wobbleSeed = new Float32Array(capacity);
   const colors = new Float32Array(capacity * 3);
   mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
   mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -40,11 +50,19 @@ export function createSwarm(scene) {
     colors[i * 3 + 2] = color.b;
   }
 
-  function writeTransform(i) {
-    dummy.position.set(x[i], y[i], z[i]);
-    const s = 1 + hitFlash[i] * 0.25;
-    dummy.scale.setScalar(s);
-    dummy.rotation.set(0, (i % 7) * 0.3 + hitFlash[i], 0);
+  function writeTransform(i, opts = {}) {
+    const bounce = opts.bounce ?? 0;
+    const lean = opts.lean ?? 0; // + lean back, - lean forward (pitch)
+    const stretchY = opts.stretchY ?? 1;
+    const stretchXZ = opts.stretchXZ ?? 1;
+    const yaw = facing[i];
+
+    dummy.position.set(x[i], y[i] + bounce, z[i]);
+    const s = (1 + hitFlash[i] * 0.22) * stretchXZ;
+    dummy.scale.set(s, (1 + hitFlash[i] * 0.1) * stretchY, s);
+    // Face movement / attack direction; add a little side wobble while walking
+    const wobbleRoll = opts.wobbleRoll ?? 0;
+    dummy.rotation.set(lean, yaw, wobbleRoll);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   }
@@ -59,10 +77,14 @@ export function createSwarm(scene) {
     hp[i] = TUNING.enemyHp;
     hitFlash[i] = 0;
     contactCd[i] = 0;
+    phase[i] = PHASE_MOVE;
+    phaseT[i] = Math.random() * 0.4;
+    facing[i] = Math.random() * Math.PI * 2;
+    wobbleSeed[i] = Math.random() * Math.PI * 2;
     setColor(i, enemyColor);
     writeTransform(i);
     liveCount += 1;
-    mesh.count = capacity; // keep full buffer; hide dead via scale 0
+    mesh.count = capacity;
     return i;
   }
 
@@ -77,10 +99,6 @@ export function createSwarm(scene) {
     freeList.push(i);
   }
 
-  /**
-   * Spawn enemies in expanding ring ranks around the portal,
-   * matching the Godot "ring ranks from far portal" feel.
-   */
   function spawnWave(count, portalPos, gatePos) {
     const towardGate = new THREE.Vector3().subVectors(gatePos, portalPos).normalize();
     const side = new THREE.Vector3(-towardGate.z, 0, towardGate.x);
@@ -93,7 +111,6 @@ export function createSwarm(scene) {
         const a = (n / inRing) * Math.PI * 2 + ring * 0.35;
         const px = portalPos.x + Math.cos(a) * radius * 0.65 + side.x * Math.sin(a) * radius;
         const pz = portalPos.z + towardGate.z * (1.5 + ring * 0.4) + Math.sin(a) * radius * 0.75;
-        // Keep inside arena
         const lim = TUNING.arenaRadius - 2;
         const d = Math.hypot(px, pz);
         const sx = d > lim ? (px / d) * lim : px;
@@ -121,6 +138,11 @@ export function createSwarm(scene) {
     hitFlash[i] = 1;
     tmpColor.copy(enemyColor).lerp(hitColor, 0.85);
     setColor(i, tmpColor);
+    // Interrupt attack windup on hit
+    if (phase[i] === PHASE_TELEGRAPH) {
+      phase[i] = PHASE_MOVE;
+      phaseT[i] = 0;
+    }
     if (hp[i] <= 0) {
       kill(i);
       return true;
@@ -128,15 +150,15 @@ export function createSwarm(scene) {
     return false;
   }
 
-  /**
-   * Enemies advance primarily toward the gate, with a mild pull toward the player
-   * when close — swarm pressure without perfect player-chasing.
-   */
   function update(dt, playerPos, gatePos, onContactPlayer, onContactGate) {
     let dirty = false;
+    const now = performance.now() * 0.001;
+
     for (let i = 0; i < capacity; i++) {
       if (!alive[i]) continue;
       contactCd[i] = Math.max(0, contactCd[i] - dt);
+      phaseT[i] += dt;
+
       if (hitFlash[i] > 0) {
         hitFlash[i] = Math.max(0, hitFlash[i] - dt * 3);
         tmpColor.copy(enemyColor).lerp(hitColor, hitFlash[i]);
@@ -151,7 +173,6 @@ export function createSwarm(scene) {
       const toPlayerZ = playerPos.z - z[i];
       const playerDist = Math.hypot(toPlayerX, toPlayerZ) || 1;
 
-      // Prefer the player when close so the horde fights you on the way to the gate.
       let dirX = toGateX / gateDist;
       let dirZ = toGateZ / gateDist;
       if (playerDist < 11) {
@@ -163,11 +184,10 @@ export function createSwarm(scene) {
         dirZ /= len;
       }
 
-      // Light separation so the horde doesn't fully stack
+      // Separation
       let sepX = 0;
       let sepZ = 0;
-      const sample = 8;
-      for (let s = 0; s < sample; s++) {
+      for (let s = 0; s < 8; s++) {
         const j = (i + 1 + s * 37) % capacity;
         if (!alive[j] || j === i) continue;
         const dx = x[i] - x[j];
@@ -185,10 +205,90 @@ export function createSwarm(scene) {
       dirX /= dlen;
       dirZ /= dlen;
 
-      const speed = TUNING.enemySpeed * (0.9 + (i % 5) * 0.04);
-      x[i] += dirX * speed * dt;
-      z[i] += dirZ * speed * dt;
-      y[i] = TUNING.enemySize / 2 + Math.sin(performance.now() * 0.008 + i) * 0.04;
+      const targetYaw = Math.atan2(dirX, dirZ);
+      // Smooth facing
+      let dyaw = targetYaw - facing[i];
+      while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+      while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+      facing[i] += dyaw * Math.min(1, dt * 6);
+
+      let bounce = 0;
+      let lean = 0;
+      let stretchY = 1;
+      let stretchXZ = 1;
+      let wobbleRoll = 0;
+      let moving = false;
+
+      // --- Attack state machine vs player ---
+      if (phase[i] === PHASE_MOVE) {
+        if (playerDist < TUNING.enemyAttackRange && contactCd[i] <= 0) {
+          phase[i] = PHASE_TELEGRAPH;
+          phaseT[i] = 0;
+        } else {
+          moving = true;
+        }
+      }
+
+      if (phase[i] === PHASE_TELEGRAPH) {
+        // Lean back, squash a little — telegraph the bonk
+        const u = Math.min(1, phaseT[i] / TUNING.enemyTelegraph);
+        lean = 0.55 * u; // tip backward
+        stretchY = 1 - u * 0.12;
+        stretchXZ = 1 + u * 0.15;
+        bounce = u * 0.08;
+        // Face the player hard
+        facing[i] = Math.atan2(toPlayerX, toPlayerZ);
+        if (phaseT[i] >= TUNING.enemyTelegraph) {
+          phase[i] = PHASE_BONK;
+          phaseT[i] = 0;
+        }
+      } else if (phase[i] === PHASE_BONK) {
+        const u = Math.min(1, phaseT[i] / TUNING.enemyBonk);
+        lean = 0.55 - u * 1.15; // whip forward
+        stretchY = 0.88 + u * 0.25;
+        stretchXZ = 1.15 - u * 0.2;
+        // Lunge toward player
+        const lunge = 5.5 * (1 - u);
+        x[i] += Math.sin(facing[i]) * lunge * dt;
+        z[i] += Math.cos(facing[i]) * lunge * dt;
+        if (u > 0.35 && u < 0.85 && contactCd[i] <= 0) {
+          const distNow = Math.hypot(playerPos.x - x[i], playerPos.z - z[i]);
+          if (distNow < TUNING.playerRadius + TUNING.enemySize * 0.7) {
+            contactCd[i] = TUNING.enemyContactCooldown;
+            onContactPlayer?.(i);
+          }
+        }
+        if (phaseT[i] >= TUNING.enemyBonk) {
+          phase[i] = PHASE_RECOVER;
+          phaseT[i] = 0;
+        }
+      } else if (phase[i] === PHASE_RECOVER) {
+        const u = Math.min(1, phaseT[i] / TUNING.enemyRecover);
+        lean = THREE.MathUtils.lerp(-0.35, 0, u);
+        stretchY = 1;
+        stretchXZ = 1;
+        if (phaseT[i] >= TUNING.enemyRecover) {
+          phase[i] = PHASE_MOVE;
+          phaseT[i] = 0;
+          contactCd[i] = TUNING.enemyContactCooldown * 0.5;
+        }
+      }
+
+      if (moving) {
+        const speed = TUNING.enemySpeed * (0.9 + (i % 5) * 0.04);
+        x[i] += dirX * speed * dt;
+        z[i] += dirZ * speed * dt;
+
+        // Cute bouncy walk: hop + squash/stretch + side wobble
+        const walk = now * 7.5 + wobbleSeed[i];
+        bounce = Math.abs(Math.sin(walk)) * 0.22;
+        stretchY = 1 + Math.sin(walk) * 0.12;
+        stretchXZ = 1 - Math.sin(walk) * 0.1;
+        wobbleRoll = Math.sin(walk * 0.5) * 0.18;
+        lean = Math.sin(walk) * 0.08;
+      }
+
+      y[i] = TUNING.enemySize / 2;
 
       // Clamp to arena
       const lim = TUNING.arenaRadius - 1;
@@ -198,23 +298,16 @@ export function createSwarm(scene) {
         z[i] = (z[i] / d) * lim;
       }
 
-      writeTransform(i);
+      writeTransform(i, { bounce, lean, stretchY, stretchXZ, wobbleRoll });
       dirty = true;
 
-      // Player contact
-      if (playerDist < TUNING.playerRadius + TUNING.enemySize * 0.55 && contactCd[i] <= 0) {
-        contactCd[i] = TUNING.enemyContactCooldown;
-        onContactPlayer?.(i);
-      }
-      // Gate contact
-      if (gateDist < TUNING.gateSize * 0.85) {
-        // Reuse contactCd but with slower gate cadence via a threshold check
-        if (contactCd[i] <= 0) {
-          contactCd[i] = TUNING.enemyGateCooldown;
-          onContactGate?.(i);
-        }
+      // Gate contact (still while moving / recovering)
+      if (gateDist < TUNING.gateSize * 0.85 && contactCd[i] <= 0 && phase[i] === PHASE_MOVE) {
+        contactCd[i] = TUNING.enemyGateCooldown;
+        onContactGate?.(i);
       }
     }
+
     if (dirty) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
@@ -231,7 +324,6 @@ export function createSwarm(scene) {
       const dz = z[i] - oz;
       const dist = Math.hypot(dx, dz);
       if (dist > range || dist < 0.01) continue;
-      // Prefer enemies in front, but allow a wide melee sweep
       const ndx = dx / dist;
       const ndz = dz / dist;
       const dot = ndx * forward.x + ndz * forward.z;

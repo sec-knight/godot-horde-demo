@@ -102,17 +102,12 @@ export function createGame(canvas) {
   }
 
   function handleCombatInput() {
-    let gained = 0;
-    if (input.consumeAction('light')) gained += combat.light();
-    if (input.consumeAction('heavy')) gained += combat.heavy();
-    if (input.consumeAction('spin')) gained += combat.spin();
-    if (input.consumeAction('slam')) gained += combat.slam();
+    if (input.consumeAction('light')) combat.light();
+    if (input.consumeAction('heavy')) combat.heavy();
+    if (input.consumeAction('spin')) combat.spin();
+    if (input.consumeAction('slam')) combat.slam();
     if (input.consumeAction('dodge')) player.tryDodge();
     if (input.consumeAction('jump')) player.tryJump();
-    if (gained > 0) {
-      kills += gained;
-      score += gained * TUNING.scorePerKill;
-    }
   }
 
   function tick(now) {
@@ -125,7 +120,11 @@ export function createGame(canvas) {
       player.applyLook(dx, dy);
       handleCombatInput();
       player.update(dt, input, arena.clampToArena);
-      combat.update(dt);
+      const gained = combat.update(dt);
+      if (gained > 0) {
+        kills += gained;
+        score += gained * TUNING.scorePerKill;
+      }
       waves.update(dt);
 
       swarm.update(

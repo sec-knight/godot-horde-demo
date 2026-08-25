@@ -16,6 +16,7 @@ export const COLORS = {
   enemy: 0x9a2233,
   enemyHit: 0xff8a8a,
   slash: 0xffe6a0,
+  impact: 0xffcc66,
 };
 
 export const TUNING = {
@@ -32,24 +33,43 @@ export const TUNING = {
   enemyGateDamage: 1.2,
   enemyContactCooldown: 0.8,
   enemyGateCooldown: 1.2,
+  enemyAttackRange: 1.55,
+  enemyTelegraph: 0.38,
+  enemyBonk: 0.2,
+  enemyRecover: 0.45,
   maxEnemies: 300,
   waveCountdown: 3,
   cameraDistance: 3.2,
   cameraHeight: 1.55,
   cameraLookHeight: 1.05,
   mouseSensitivity: 0.0022,
-  lightDamage: 24,
+
+  // Light = 3-hit combo: left slash, right slash, small spin
+  lightDamage: 18,
+  combo3Damage: 28,
+  comboWindow: 0.6,
+  comboStepDur: [0.3, 0.3, 0.42],
+  lightRange: 3.2,
+  lightCooldown: 0.08, // per-press gate; combo window is the real limiter
+
   heavyDamage: 42,
-  spinDamage: 22,
-  slamDamage: 55,
-  lightRange: 3.1,
   heavyRange: 3.4,
-  spinRange: 3.6,
-  slamRange: 4.0,
-  lightCooldown: 0.22,
   heavyCooldown: 0.48,
-  spinCooldown: 2.4,
+  heavyDur: 0.36,
+
+  spinDamage: 14, // per revolution
+  spinRevolutions: 3,
+  spinRange: 3.4,
+  spinCooldown: 2.6,
+  spinDur: 1.15,
+
+  slamDamage: 55,
+  slamRange: 4.2,
   slamCooldown: 3.2,
+  slamWindup: 0.42,
+  slamSlam: 0.18,
+  slamRecover: 0.22,
+
   dodgeCooldown: 0.85,
   dodgeDuration: 0.28,
   dodgeSpeedMul: 2.6,

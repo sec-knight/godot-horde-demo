@@ -3,13 +3,11 @@
 Private playable build of the Three.js horde demo.
 
 - URL: `https://sneaker.games/admin/horde-three/`
-- Access: Cloudflare Access on `/admin/*` (same wall as Feedback / Identify)
-- Source: `sec-knight/godot-horde-demo` (Three.js recreation branch)
+- Access: Cloudflare Access on `/admin/*`
+- Source: this repo (`npm run dev` to iterate)
 
-Rebuild from that repo with:
+Rebuild:
 
 ```bash
-npx vite build --base=/admin/horde-three/ --outDir=../sneaker.games/admin/horde-three --emptyOutDir
+npx vite build --base=/admin/horde-three/ --outDir=deploy/sneaker-admin/horde-three --emptyOutDir
 ```
-
-Do not link this from the public site.
