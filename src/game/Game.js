@@ -15,8 +15,9 @@ import { createAdminStudio } from '../admin/panel.js';
 import { createStudioWorkshop } from './studioWorkshop.js';
 import { createStudioDock } from '../studio/studioDock.js';
 import { createCharacterSetup } from '../ui/characterSetup.js';
-import { loadLoadout } from '../runtime/loadout.js';
+import { loadLoadout, resolveThing } from '../runtime/loadout.js';
 import { getPlayCatalog } from '../runtime/playCatalog.js';
+import { applyWeaponStatsToTuning, weaponStatsFromThing } from '../runtime/weaponStats.js';
 
 const BEST_KEY = 'threejs-horde-best';
 
@@ -71,7 +72,10 @@ export function createGame(canvas) {
   applyBundle(bundleCtx, bundle);
 
   function applyCurrentLoadout(loadout = loadLoadout()) {
-    player.applyLoadout(loadout, getPlayCatalog());
+    const catalog = getPlayCatalog();
+    player.applyLoadout(loadout, catalog);
+    const weapon = resolveThing(catalog, loadout?.slots?.hand);
+    applyWeaponStatsToTuning(weaponStatsFromThing(weapon));
   }
   applyCurrentLoadout();
 
@@ -98,6 +102,8 @@ export function createGame(canvas) {
     getCatalog: () => getPlayCatalog(),
     onChange: (loadout, catalog) => {
       player.applyLoadout(loadout, catalog);
+      const weapon = resolveThing(catalog, loadout?.slots?.hand);
+      applyWeaponStatsToTuning(weaponStatsFromThing(weapon));
     },
     onConfirm: () => start(),
     onBack: () => {

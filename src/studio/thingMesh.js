@@ -67,6 +67,7 @@ export function newThingDraft(name = 'New Thing') {
     kind: 'equip',
     slot: 'hand',
     style: 'sword',
+    stats: { damage: 18, reach: 3.2, speed: 1.0 },
     parts: [defaultPart('box')],
   };
 }

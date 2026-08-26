@@ -373,6 +373,11 @@ Programmer-art assemblies from box / sphere / cylinder parts:
   "kind": "equip",          // equip | prop
   "slot": "hand",           // head | hand | world
   "style": "sword",         // sword | spear | hammer | hat (optional)
+  "stats": {                // hand weapons only — drives combat TUNING when equipped
+    "damage": 18,           // light hit power (heavy/spin/slam scale from this)
+    "reach": 3.2,           // attack range
+    "speed": 1.0            // swing rate; 1.0 = baseline sword (higher = faster)
+  },
   "parts": [
     {
       "id": "blade",

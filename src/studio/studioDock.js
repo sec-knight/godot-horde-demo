@@ -8,6 +8,7 @@ import {
   thingIdsFromSlots,
 } from './thingMesh.js';
 import { thingsForSlotWithNone, thingsForSlot } from './starterGear.js';
+import { defaultWeaponStats, normalizeWeaponStats, formatWeaponStats } from '../runtime/weaponStats.js';
 
 const DRAFT_KEY = 'horde-studio-draft';
 
@@ -212,10 +213,39 @@ export function createStudioDock(ctx) {
       styleIn.addEventListener('change', () => {
         patchCatalog((cat) => {
           const t = cat.find((x) => x.id === thing.id);
-          if (t) t.style = styleIn.value;
+          if (t) {
+            t.style = styleIn.value;
+            if (!t.stats) t.stats = defaultWeaponStats(styleIn.value);
+          }
         });
       });
       body.append(field('Weapon style', styleIn));
+
+      const stats = normalizeWeaponStats(thing.stats ?? defaultWeaponStats(thing.style ?? 'sword'));
+      body.append(el('p', 'admin-hint', `Combat · ${formatWeaponStats(stats)}`));
+
+      const bindStat = (key, input, step) => {
+        input.step = String(step);
+        input.addEventListener('change', () => {
+          patchCatalog((cat) => {
+            const t = cat.find((x) => x.id === thing.id);
+            if (!t) return;
+            t.stats = normalizeWeaponStats({ ...(t.stats ?? {}), [key]: Number(input.value) });
+          });
+        });
+        return input;
+      };
+
+      body.append(field('Damage', bindStat('damage', numInput(stats.damage, 1), 1)));
+      body.append(field('Reach', bindStat('reach', numInput(stats.reach, 0.1), 0.1)));
+      body.append(field('Speed', bindStat('speed', numInput(stats.speed, 0.05), 0.05)));
+      body.append(
+        el(
+          'p',
+          'admin-hint',
+          'Damage → hit power. Reach → attack range. Speed → swing rate (1.0 = baseline sword).',
+        ),
+      );
     }
 
     body.append(el('p', 'admin-hint', 'Parts'));

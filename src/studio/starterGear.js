@@ -7,6 +7,7 @@ export const STARTER_THINGS = [
     kind: 'equip',
     slot: 'hand',
     style: 'sword',
+    stats: { damage: 18, reach: 3.2, speed: 1.0 },
     parts: [
       {
         id: 'blade',
@@ -49,6 +50,7 @@ export const STARTER_THINGS = [
     kind: 'equip',
     slot: 'hand',
     style: 'spear',
+    stats: { damage: 14, reach: 4.4, speed: 1.05 },
     parts: [
       {
         id: 'shaft',
@@ -91,6 +93,7 @@ export const STARTER_THINGS = [
     kind: 'equip',
     slot: 'hand',
     style: 'hammer',
+    stats: { damage: 30, reach: 2.5, speed: 0.72 },
     parts: [
       {
         id: 'handle',
@@ -231,9 +234,21 @@ export function mergeThingCatalog(catalog = []) {
   const byId = new Map();
   for (const t of STARTER_THINGS) byId.set(t.id, structuredClone(t));
   for (const t of catalog) {
-    if (t?.id) byId.set(t.id, t);
+    if (!t?.id) continue;
+    const prev = byId.get(t.id);
+    const merged = prev ? { ...prev, ...t, parts: t.parts ?? prev.parts } : t;
+    if (merged.slot === 'hand' && !merged.stats) {
+      merged.stats = defaultWeaponStatsForStyle(merged.style);
+    }
+    byId.set(t.id, merged);
   }
   return [...byId.values()];
+}
+
+function defaultWeaponStatsForStyle(style) {
+  if (style === 'spear') return { damage: 14, reach: 4.4, speed: 1.05 };
+  if (style === 'hammer') return { damage: 30, reach: 2.5, speed: 0.72 };
+  return { damage: 18, reach: 3.2, speed: 1.0 };
 }
 
 export function thingsForSlot(catalog, slot) {

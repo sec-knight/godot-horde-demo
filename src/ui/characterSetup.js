@@ -1,5 +1,6 @@
 import { loadLoadout, saveLoadout, DEFAULT_LOADOUT } from '../runtime/loadout.js';
 import { PLAYER_COLOR_PRESETS, thingsForSlotWithNone, thingsForSlot } from '../studio/starterGear.js';
+import { formatWeaponStats, weaponStatsFromThing } from '../runtime/weaponStats.js';
 
 /**
  * Character setup overlay — pick color, hat, weapon from Things catalog.
@@ -18,6 +19,7 @@ export function createCharacterSetup({ onConfirm, onBack, onChange, getCatalog }
   const colorRow = root.querySelector('#setup-colors');
   const hatRow = root.querySelector('#setup-hats');
   const weaponRow = root.querySelector('#setup-weapons');
+  const weaponStatsEl = root.querySelector('#setup-weapon-stats');
   const customColor = root.querySelector('#setup-color-custom');
   const summary = root.querySelector('#setup-summary');
 
@@ -34,18 +36,33 @@ export function createCharacterSetup({ onConfirm, onBack, onChange, getCatalog }
   }
 
   function renderSummary() {
-    if (!summary) return;
     const cat = catalog();
     const hat = cat.find((t) => t.id === loadout.slots.head);
     const weapon = cat.find((t) => t.id === loadout.slots.hand);
-    summary.textContent = `${weapon?.name ?? 'Sword'} · ${hat?.name ?? 'No Hat'} · ${loadout.color}`;
+    if (summary) {
+      summary.textContent = `${weapon?.name ?? 'Sword'} · ${hat?.name ?? 'No Hat'} · ${loadout.color}`;
+    }
+    if (weaponStatsEl) {
+      weaponStatsEl.textContent = formatWeaponStats(weaponStatsFromThing(weapon));
+    }
   }
 
-  function optionBtn(label, active, onClick) {
+  function optionBtn(label, active, onClick, sub) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `setup-option${active ? ' active' : ''}`;
-    btn.textContent = label;
+    if (sub) {
+      const title = document.createElement('span');
+      title.className = 'setup-option-title';
+      title.textContent = label;
+      const meta = document.createElement('span');
+      meta.className = 'setup-option-meta';
+      meta.textContent = sub;
+      btn.append(title, meta);
+      btn.classList.add('setup-option-stack');
+    } else {
+      btn.textContent = label;
+    }
     btn.addEventListener('click', onClick);
     return btn;
   }
@@ -91,12 +108,19 @@ export function createCharacterSetup({ onConfirm, onBack, onChange, getCatalog }
       weaponRow.replaceChildren();
       for (const item of thingsForSlot(cat, 'hand')) {
         const active = loadout.slots.hand === item.id;
+        const s = weaponStatsFromThing(item);
+        const sub = `D${Math.round(s.damage)} · R${s.reach.toFixed(1)} · S${s.speed.toFixed(2)}`;
         weaponRow.append(
-          optionBtn(item.name, active, () => {
-            loadout.slots.hand = item.id;
-            emit();
-            render();
-          }),
+          optionBtn(
+            item.name,
+            active,
+            () => {
+              loadout.slots.hand = item.id;
+              emit();
+              render();
+            },
+            sub,
+          ),
         );
       }
     }
