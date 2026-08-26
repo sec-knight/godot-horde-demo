@@ -14,6 +14,9 @@ import { getBundle, getScoring } from '../runtime/bundleState.js';
 import { createAdminStudio } from '../admin/panel.js';
 import { createStudioWorkshop } from './studioWorkshop.js';
 import { createStudioDock } from '../studio/studioDock.js';
+import { createCharacterSetup } from '../ui/characterSetup.js';
+import { loadLoadout } from '../runtime/loadout.js';
+import { getPlayCatalog } from '../runtime/playCatalog.js';
 
 const BEST_KEY = 'threejs-horde-best';
 
@@ -42,7 +45,7 @@ export function createGame(canvas) {
   const input = createInput(canvas);
   const hud = createHUD();
 
-  let mode = 'menu'; // menu | playing | gameover | studio
+  let mode = 'menu'; // menu | setup | playing | gameover | studio
   let gateHp = TUNING.gateHp;
   let score = 0;
   let kills = 0;
@@ -67,9 +70,15 @@ export function createGame(canvas) {
 
   applyBundle(bundleCtx, bundle);
 
+  function applyCurrentLoadout(loadout = loadLoadout()) {
+    player.applyLoadout(loadout, getPlayCatalog());
+  }
+  applyCurrentLoadout();
+
   bundleCtx.onApply = () => {
     gateHp = Math.min(gateHp, TUNING.gateHp);
     player.state.hp = Math.min(player.state.hp, TUNING.playerHp);
+    applyCurrentLoadout();
   };
 
   const admin = createAdminStudio({
@@ -83,6 +92,19 @@ export function createGame(canvas) {
       workshop.rebuildPreviews(b);
     },
     onLeave: () => leaveStudio(),
+  });
+
+  const characterSetup = createCharacterSetup({
+    getCatalog: () => getPlayCatalog(),
+    onChange: (loadout, catalog) => {
+      player.applyLoadout(loadout, catalog);
+    },
+    onConfirm: () => start(),
+    onBack: () => {
+      mode = 'menu';
+      characterSetup.hide();
+      hud.showMenu();
+    },
   });
 
   waves.on('countdown', ({ wave, value }) => {
@@ -119,15 +141,36 @@ export function createGame(canvas) {
     kills = 0;
     time = 0;
     arena.gateMesh.material.color.setHex(0xdc3545);
+    applyCurrentLoadout();
     waves.startRun();
   }
 
-  function start() {
+  function openSetup() {
     audio.unlock();
     workshop.setVisible(false);
     arena.setSiegeVisible(true);
     dock.setVisible(false);
-    // Return to combat preset if we were in studio
+    if (getBundle().foundation?.id === 'studio') {
+      applyBundle(bundleCtx, loadPreset('default'));
+    }
+    swarm.clear();
+    const ps = getBundle().world.playerSpawn;
+    player.setSpawn(ps);
+    player.state.yaw = Math.PI * 0.15;
+    player.state.pitch = 0.08;
+    player.root.position.y = 0;
+    applyCurrentLoadout();
+    mode = 'setup';
+    characterSetup.show();
+    hud.showSetup();
+  }
+
+  function start() {
+    audio.unlock();
+    characterSetup.hide();
+    workshop.setVisible(false);
+    arena.setSiegeVisible(true);
+    dock.setVisible(false);
     if (getBundle().foundation?.id === 'studio') {
       applyBundle(bundleCtx, loadPreset('default'));
     }
@@ -167,6 +210,7 @@ export function createGame(canvas) {
     dock.setVisible(false);
     admin.enabled && admin.close();
     applyBundle(bundleCtx, loadPreset('default'));
+    applyCurrentLoadout();
     swarm.clear();
     mode = 'menu';
     hud.showMenu();
@@ -292,6 +336,14 @@ export function createGame(canvas) {
         hud.setStudioDomain(domain);
         if (dock.isVisible()) dock.render();
       }
+    } else if (mode === 'setup') {
+      // Slow turntable preview of loadout
+      player.state.yaw += dt * 0.55;
+      player.root.rotation.y = player.state.yaw;
+      const focus = player.position.clone();
+      focus.y += 1.05;
+      camera.position.set(focus.x + 3.4, 2.2, focus.z + 3.8);
+      camera.lookAt(focus);
     } else {
       swarm.update(dt * 0.35, player.position, arena.gatePosition);
       const t = now * 0.00025;
@@ -303,11 +355,12 @@ export function createGame(canvas) {
   }
 
   function bindUI() {
-    document.getElementById('btn-play')?.addEventListener('click', () => start());
+    document.getElementById('btn-play')?.addEventListener('click', () => openSetup());
     document.getElementById('btn-studio')?.addEventListener('click', () => startStudio());
     document.getElementById('btn-retry')?.addEventListener('click', () => start());
     document.getElementById('btn-menu')?.addEventListener('click', () => {
       mode = 'menu';
+      characterSetup.hide();
       swarm.clear();
       hud.showMenu();
     });
@@ -331,14 +384,17 @@ export function createGame(canvas) {
     admin,
     dock,
     workshop,
+    characterSetup,
     getBundle,
     startStudio,
+    openSetup,
     isBlocking: () => player.state.blocking,
     shieldPos: () => ({ ...player.shield.position }),
   };
 
   return {
     start,
+    openSetup,
     startStudio,
     admin,
     dispose() {

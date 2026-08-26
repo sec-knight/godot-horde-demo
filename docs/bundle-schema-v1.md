@@ -337,6 +337,16 @@ Add fields inside existing domains when the change is content or tuning.
 
 Used by the **Domain Workshop** prototyping level (`bundles/studio.bundle.json`). Combat arenas may omit these.
 
+### Player loadout (runtime, not in bundle)
+
+Before Play Arena, **Character Setup** lets the player pick:
+
+- `color` — body tint
+- `slots.head` — Thing id with `slot: "head"`
+- `slots.hand` — Thing id with `slot: "hand"` (sword / spear / hammer)
+
+Persisted in `localStorage` (`horde-player-loadout`). Options come from starter gear + Things authored in the workshop.
+
 ### `world.zones[]`
 
 Floor pads that map to domains:
@@ -362,6 +372,7 @@ Programmer-art assemblies from box / sphere / cylinder parts:
   "name": "Captain Sword",
   "kind": "equip",          // equip | prop
   "slot": "hand",           // head | hand | world
+  "style": "sword",         // sword | spear | hammer | hat (optional)
   "parts": [
     {
       "id": "blade",
@@ -376,7 +387,7 @@ Programmer-art assemblies from box / sphere / cylinder parts:
 
 ### `actors.catalog[]`
 
-Actors reference Things by id and may declare summons:
+Actors equip Things via the same **head / hand slots** as the player (and may keep `thingIds`):
 
 ```jsonc
 {
@@ -384,6 +395,8 @@ Actors reference Things by id and may declare summons:
   "name": "Enemy Captain",
   "role": "elite",
   "hp": 140,
+  "color": "#4a5568",
+  "slots": { "head": "hat-captain", "hand": "sword-captain" },
   "thingIds": ["hat-captain", "sword-captain"],
   "summons": { "actorId": "undead-soldier", "maxAlive": 100, "refill": true }
 }

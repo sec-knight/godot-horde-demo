@@ -9,8 +9,8 @@
     <meta name="theme-color" content="#0a1018" />
     <title>Horde Defense · Three.js</title>
     <link rel="icon" href="/admin/horde-three/assets/logo.svg" type="image/svg+xml" />
-    <script type="module" crossorigin src="/admin/horde-three/assets/index-CejSRIlS.js"></script>
-    <link rel="stylesheet" crossorigin href="/admin/horde-three/assets/index-CeLEBgkn.css">
+    <script type="module" crossorigin src="/admin/horde-three/assets/index-ds6CHdR3.js"></script>
+    <link rel="stylesheet" crossorigin href="/admin/horde-three/assets/index-DnCi44dy.css">
   </head>
   <body>
     <div id="app">
@@ -75,8 +75,43 @@
             <div><kbd>WASD</kbd> move · mouse look · <kbd>V</kbd> camera</div>
             <div><kbd>LMB</kbd> slash combo · <kbd>RMB</kbd> block · hold <kbd>RMB</kbd>+<kbd>LMB</kbd> push</div>
             <div><kbd>E</kbd> heavy · <kbd>Q</kbd> spin · <kbd>F</kbd> slam · <kbd>Shift</kbd> dodge · <kbd>Space</kbd> jump</div>
-            <div>Workshop: walk domain pads · Esc opens authoring dock · <kbd>`</kbd> numeric admin</div>
+            <div>Play opens character setup · Workshop authors Things for those slots</div>
           </div>
+        </div>
+      </div>
+
+      <div id="character-setup" class="overlay hidden">
+        <div class="menu-card setup-card">
+          <div class="menu-logo" data-sg-coin="lg"></div>
+          <h1>CHARACTER SETUP</h1>
+          <p class="tagline">Equip Things before the siege</p>
+          <p class="blurb setup-blurb">
+            Slots pull from the Things catalog — starter gear plus anything you author in the Domain Workshop.
+          </p>
+
+          <div class="setup-section">
+            <div class="setup-label">Player color</div>
+            <div id="setup-colors" class="setup-options"></div>
+            <label class="setup-custom-color admin-field">
+              <span class="admin-label">Custom</span>
+              <input id="setup-color-custom" type="color" value="#8fb4d4" />
+            </label>
+          </div>
+
+          <div class="setup-section">
+            <div class="setup-label">Hat slot</div>
+            <div id="setup-hats" class="setup-options"></div>
+          </div>
+
+          <div class="setup-section">
+            <div class="setup-label">Weapon slot</div>
+            <div id="setup-weapons" class="setup-options"></div>
+          </div>
+
+          <p id="setup-summary" class="setup-summary">Sword · Soft Cap · #8fb4d4</p>
+
+          <button id="btn-enter-arena" class="btn primary">Enter Arena</button>
+          <button id="btn-setup-back" class="btn">Back</button>
         </div>
       </div>
 

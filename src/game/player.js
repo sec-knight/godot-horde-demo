@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
+import { buildThingGroup } from '../studio/thingMesh.js';
+import { resolveThing } from '../runtime/loadout.js';
 
 /**
  * Movement/combat forward is local −Z (matches W / getForward).
@@ -8,6 +10,43 @@ import { COLORS, TUNING } from './config.js';
 const IDLE_SWORD = { x: 0.65, y: 0.9, z: -0.15 };
 const IDLE_SHIELD = { x: -0.55, y: 0.85, z: -0.1 };
 const FWD = -1; // local Z multiplier for “in front”
+
+function disposeChildren(obj) {
+  while (obj.children.length) {
+    const ch = obj.children[0];
+    ch.traverse((n) => {
+      n.geometry?.dispose?.();
+      if (n.material) {
+        if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose?.());
+        else n.material.dispose?.();
+      }
+    });
+    obj.remove(ch);
+  }
+}
+
+function buildDefaultSwordMeshes(swordGroup) {
+  const blade = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 1.35, 0.06),
+    new THREE.MeshLambertMaterial({ color: COLORS.swordBlade }),
+  );
+  blade.position.y = 0.55;
+  swordGroup.add(blade);
+
+  const guard = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.22, 0.08, 12),
+    new THREE.MeshLambertMaterial({ color: COLORS.swordGuard }),
+  );
+  guard.rotation.z = Math.PI / 2;
+  swordGroup.add(guard);
+
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 0.35, 8),
+    new THREE.MeshLambertMaterial({ color: 0x5a3a22 }),
+  );
+  handle.position.y = -0.18;
+  swordGroup.add(handle);
+}
 
 export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   const root = new THREE.Group();
@@ -20,6 +59,12 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   );
   body.position.y = TUNING.playerRadius;
   root.add(body);
+
+  /** Head attach point — local to body top. */
+  const hatSlot = new THREE.Group();
+  hatSlot.name = 'hatSlot';
+  hatSlot.position.set(0, TUNING.playerRadius * 0.95, 0);
+  body.add(hatSlot);
 
   const weaponRig = new THREE.Group();
   weaponRig.position.y = 0.9;
@@ -40,27 +85,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
   const sword = new THREE.Group();
   sword.position.set(IDLE_SWORD.x, IDLE_SWORD.y - 0.9, IDLE_SWORD.z);
   weaponRig.add(sword);
-
-  const blade = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 1.35, 0.06),
-    new THREE.MeshLambertMaterial({ color: COLORS.swordBlade }),
-  );
-  blade.position.y = 0.55;
-  sword.add(blade);
-
-  const guard = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.22, 0.08, 12),
-    new THREE.MeshLambertMaterial({ color: COLORS.swordGuard }),
-  );
-  guard.rotation.z = Math.PI / 2;
-  sword.add(guard);
-
-  const handle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.05, 0.35, 8),
-    new THREE.MeshLambertMaterial({ color: 0x5a3a22 }),
-  );
-  handle.position.y = -0.18;
-  sword.add(handle);
+  buildDefaultSwordMeshes(sword);
 
   // Horizontal slash arc: sword orbits on slashPivot; trail shows the fixed semicircle ahead.
   const SLASH_RADIUS = 1.15;
@@ -358,6 +383,7 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     body,
     sword,
     shield,
+    hatSlot,
     state,
     getForward,
     getRight,
@@ -366,6 +392,31 @@ export function createPlayer(scene, spawn = new THREE.Vector3(0, 0, -4)) {
     },
     setSpawn(spawn = { x: 0, z: -4 }) {
       root.position.set(spawn.x ?? 0, root.position.y, spawn.z ?? -4);
+    },
+    /**
+     * Apply character loadout: body color + slot Things from catalog.
+     * @param {{ color?: string, slots?: { head?: string|null, hand?: string|null } }} loadout
+     * @param {object[]} catalog things.catalog
+     */
+    applyLoadout(loadout, catalog = []) {
+      const color = loadout?.color ?? '#8fb4d4';
+      body.material.color.set(color);
+
+      disposeChildren(hatSlot);
+      const hat = resolveThing(catalog, loadout?.slots?.head);
+      if (hat && (hat.parts?.length ?? 0) > 0) {
+        const g = buildThingGroup(hat);
+        hatSlot.add(g);
+      }
+
+      disposeChildren(sword);
+      const weapon = resolveThing(catalog, loadout?.slots?.hand);
+      if (weapon && (weapon.parts?.length ?? 0) > 0) {
+        const g = buildThingGroup(weapon);
+        sword.add(g);
+      } else {
+        buildDefaultSwordMeshes(sword);
+      }
     },
     applyLook(dx, dy) {
       state.yaw -= dx * TUNING.mouseSensitivity;

@@ -1,5 +1,7 @@
 import { BUNDLE_PRESETS, DEFAULT_PRESET_ID } from './catalog.js';
 
+import { mergeThingCatalog } from '../studio/starterGear.js';
+
 function deepMerge(base, overlay) {
   if (overlay === null || overlay === undefined) return base;
   if (Array.isArray(overlay)) return overlay.slice();
@@ -92,9 +94,9 @@ export function validateBundle(bundle) {
   if (!b.foundation?.id) b.foundation = { ...b.foundation, id: 'custom', name: 'Custom' };
   if (!b.foundation?.name) b.foundation.name = b.foundation.id;
 
-  // Authoring catalogs (studio) — pass through; merge already replaced arrays
+  // Authoring catalogs (studio) — merge starter gear so Play Arena always has weapons/hats
   b.things = b.things ?? {};
-  b.things.catalog = Array.isArray(b.things.catalog) ? b.things.catalog : [];
+  b.things.catalog = mergeThingCatalog(Array.isArray(b.things.catalog) ? b.things.catalog : []);
   b.actors = b.actors ?? {};
   b.actors.catalog = Array.isArray(b.actors.catalog) ? b.actors.catalog : [];
   b.events = b.events ?? {};

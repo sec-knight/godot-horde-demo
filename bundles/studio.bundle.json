@@ -79,6 +79,7 @@
         "name": "Captain Hat",
         "kind": "equip",
         "slot": "head",
+        "style": "hat",
         "parts": [
           {
             "id": "brim",
@@ -120,6 +121,7 @@
         "name": "Captain Sword",
         "kind": "equip",
         "slot": "hand",
+        "style": "sword",
         "parts": [
           {
             "id": "blade",
@@ -240,6 +242,10 @@
         "speed": 2.1,
         "size": 1.35,
         "color": "#4a5568",
+        "slots": {
+          "head": "hat-captain",
+          "hand": "sword-captain"
+        },
         "thingIds": ["hat-captain", "sword-captain"],
         "summons": {
           "actorId": "undead-soldier",

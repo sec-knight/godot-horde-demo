@@ -1,6 +1,13 @@
 import { getBundle, setBundle } from '../runtime/bundleState.js';
 import { validateBundle, bundleToJson } from '../bundle/load.js';
-import { defaultPart, newThingDraft } from './thingMesh.js';
+import {
+  defaultPart,
+  newThingDraft,
+  newActorDraft,
+  actorSlotsFromThingIds,
+  thingIdsFromSlots,
+} from './thingMesh.js';
+import { thingsForSlotWithNone, thingsForSlot } from './starterGear.js';
 
 const DRAFT_KEY = 'horde-studio-draft';
 
@@ -25,10 +32,22 @@ function numInput(value, step = 0.05) {
   return input;
 }
 
+function selectInput(options, value) {
+  const sel = el('select');
+  for (const opt of options) {
+    const o = el('option');
+    o.value = opt.value;
+    o.textContent = opt.label;
+    if (String(opt.value) === String(value ?? '')) o.selected = true;
+    sel.append(o);
+  }
+  return sel;
+}
+
 /**
  * Domain-aware authoring dock for the prototyping level.
  * Things: assemble box/sphere/cylinder parts and save to catalog.
- * Actors / Events / Worlds: inspect + light edit of sample authored data.
+ * Actors: equip Things into head/hand slots (mirrors player loadout).
  */
 export function createStudioDock(ctx) {
   const root = el('aside', 'studio-dock hidden');
@@ -49,10 +68,15 @@ export function createStudioDock(ctx) {
 
   let selectedThingId = null;
   let selectedPartId = null;
+  let selectedActorId = null;
   let visible = false;
 
   function catalog() {
     return getBundle().things?.catalog ?? [];
+  }
+
+  function actorsList() {
+    return getBundle().actors?.catalog ?? [];
   }
 
   function patchCatalog(mutator) {
@@ -60,6 +84,16 @@ export function createStudioDock(ctx) {
     b.things = b.things ?? {};
     b.things.catalog = b.things.catalog ?? [];
     mutator(b.things.catalog);
+    setBundle(validateBundle(b));
+    ctx.onCatalogChange?.(getBundle());
+    render();
+  }
+
+  function patchActors(mutator) {
+    const b = structuredClone(getBundle());
+    b.actors = b.actors ?? {};
+    b.actors.catalog = b.actors.catalog ?? [];
+    mutator(b.actors.catalog);
     setBundle(validateBundle(b));
     ctx.onCatalogChange?.(getBundle());
     render();
@@ -74,13 +108,23 @@ export function createStudioDock(ctx) {
     return thing.parts?.find((p) => p.id === selectedPartId) ?? thing.parts?.[0] ?? null;
   }
 
+  function selectedActor() {
+    return actorsList().find((a) => a.id === selectedActorId) ?? actorsList()[0] ?? null;
+  }
+
   function renderThings() {
     body.replaceChildren();
-    body.append(el('p', 'admin-hint', 'Assemble from box / sphere / cylinder. Save drafts locally, export JSON into a bundle.'));
+    body.append(
+      el(
+        'p',
+        'admin-hint',
+        'Author gear for player & actor slots. Hand items show up as weapons; head items as hats in Character Setup.',
+      ),
+    );
 
     const list = el('div', 'studio-list');
     for (const thing of catalog()) {
-      const btn = el('button', 'studio-list-item', thing.name);
+      const btn = el('button', 'studio-list-item', `${thing.name} · ${thing.slot}`);
       if (thing.id === (selectedThingId ?? catalog()[0]?.id)) btn.classList.add('active');
       btn.type = 'button';
       btn.addEventListener('click', () => {
@@ -119,14 +163,13 @@ export function createStudioDock(ctx) {
     });
     body.append(field('Name', nameIn));
 
-    const kindIn = el('select');
-    for (const k of ['equip', 'prop']) {
-      const opt = el('option');
-      opt.value = k;
-      opt.textContent = k;
-      if (k === thing.kind) opt.selected = true;
-      kindIn.append(opt);
-    }
+    const kindIn = selectInput(
+      [
+        { value: 'equip', label: 'equip (wearable)' },
+        { value: 'prop', label: 'prop (world)' },
+      ],
+      thing.kind,
+    );
     kindIn.addEventListener('change', () => {
       patchCatalog((cat) => {
         const t = cat.find((x) => x.id === thing.id);
@@ -135,21 +178,45 @@ export function createStudioDock(ctx) {
     });
     body.append(field('Kind', kindIn));
 
-    const slotIn = el('select');
-    for (const s of ['head', 'hand', 'world']) {
-      const opt = el('option');
-      opt.value = s;
-      opt.textContent = s;
-      if (s === thing.slot) opt.selected = true;
-      slotIn.append(opt);
-    }
+    const slotIn = selectInput(
+      [
+        { value: 'head', label: 'head (hat slot)' },
+        { value: 'hand', label: 'hand (weapon slot)' },
+        { value: 'world', label: 'world (prop)' },
+      ],
+      thing.slot,
+    );
     slotIn.addEventListener('change', () => {
       patchCatalog((cat) => {
         const t = cat.find((x) => x.id === thing.id);
-        if (t) t.slot = slotIn.value;
+        if (t) {
+          t.slot = slotIn.value;
+          if (slotIn.value === 'head') t.style = 'hat';
+          if (slotIn.value === 'hand' && !['sword', 'spear', 'hammer'].includes(t.style)) {
+            t.style = 'sword';
+          }
+        }
       });
     });
-    body.append(field('Slot', slotIn));
+    body.append(field('Equip slot', slotIn));
+
+    if (thing.slot === 'hand') {
+      const styleIn = selectInput(
+        [
+          { value: 'sword', label: 'sword' },
+          { value: 'spear', label: 'spear' },
+          { value: 'hammer', label: 'hammer' },
+        ],
+        thing.style ?? 'sword',
+      );
+      styleIn.addEventListener('change', () => {
+        patchCatalog((cat) => {
+          const t = cat.find((x) => x.id === thing.id);
+          if (t) t.style = styleIn.value;
+        });
+      });
+      body.append(field('Weapon style', styleIn));
+    }
 
     body.append(el('p', 'admin-hint', 'Parts'));
     const partRow = el('div', 'studio-btn-row');
@@ -173,7 +240,7 @@ export function createStudioDock(ctx) {
     const partList = el('div', 'studio-list');
     for (const part of thing.parts ?? []) {
       const btn = el('button', 'studio-list-item', `${part.primitive} · ${part.id}`);
-      if (part.id === (selectedPart()?.id)) btn.classList.add('active');
+      if (part.id === selectedPart()?.id) btn.classList.add('active');
       btn.type = 'button';
       btn.addEventListener('click', () => {
         selectedPartId = part.id;
@@ -186,7 +253,7 @@ export function createStudioDock(ctx) {
     const part = selectedPart(thing);
     if (!part) return;
 
-    const bindPart = (key, input, step = 0.05) => {
+    const bindPart = (key, input) => {
       input.addEventListener('change', () => {
         const v = key === 'color' ? input.value : Number(input.value);
         patchCatalog((cat) => {
@@ -254,30 +321,128 @@ export function createStudioDock(ctx) {
       el(
         'p',
         'admin-hint',
-        'Actors wear Things you authored. Example: Enemy Captain equips hat + sword and refills up to 100 undead soldiers.',
+        'Equip Things into the same head / hand slots the player uses. Mannequin updates live on the Actors pad.',
       ),
     );
-    const actors = getBundle().actors?.catalog ?? [];
-    for (const actor of actors) {
-      const card = el('div', 'studio-card');
-      card.append(el('strong', '', actor.name));
-      card.append(
+
+    const list = el('div', 'studio-list');
+    for (const actor of actorsList()) {
+      const btn = el('button', 'studio-list-item', `${actor.name} · ${actor.role}`);
+      if (actor.id === (selectedActorId ?? actorsList()[0]?.id)) btn.classList.add('active');
+      btn.type = 'button';
+      btn.addEventListener('click', () => {
+        selectedActorId = actor.id;
+        render();
+      });
+      list.append(btn);
+    }
+    body.append(list);
+
+    const addRow = el('div', 'studio-btn-row');
+    const addActor = el('button', 'btn', '+ New actor');
+    addActor.type = 'button';
+    addActor.addEventListener('click', () => {
+      const draft = newActorDraft('New Actor');
+      patchActors((cat) => {
+        cat.push(draft);
+        selectedActorId = draft.id;
+      });
+    });
+    addRow.append(addActor);
+    body.append(addRow);
+
+    const actor = selectedActor();
+    if (!actor) return;
+
+    const nameIn = el('input');
+    nameIn.value = actor.name;
+    nameIn.addEventListener('change', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (a) a.name = nameIn.value;
+      });
+    });
+    body.append(field('Name', nameIn));
+
+    const roleIn = selectInput(
+      [
+        { value: 'minion', label: 'minion' },
+        { value: 'elite', label: 'elite' },
+        { value: 'boss', label: 'boss' },
+      ],
+      actor.role ?? 'minion',
+    );
+    roleIn.addEventListener('change', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (a) a.role = roleIn.value;
+      });
+    });
+    body.append(field('Role', roleIn));
+
+    const hpIn = numInput(actor.hp ?? 30, 1);
+    hpIn.addEventListener('change', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (a) a.hp = Number(hpIn.value);
+      });
+    });
+    body.append(field('HP', hpIn));
+
+    const color = el('input');
+    color.type = 'color';
+    color.value = (actor.color ?? '#6a7380').startsWith('#') ? actor.color : `#${actor.color}`;
+    color.addEventListener('input', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (a) a.color = color.value;
+      });
+    });
+    body.append(field('Body color', color));
+
+    const slots = actorSlotsFromThingIds(actor, catalog());
+    body.append(el('p', 'admin-hint', 'Equipment slots'));
+
+    const hatOpts = thingsForSlotWithNone(catalog(), 'head').map((t) => ({
+      value: t.id ?? '',
+      label: t.name,
+    }));
+    const hatIn = selectInput(hatOpts, slots.head ?? '');
+    hatIn.addEventListener('change', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (!a) return;
+        const next = { ...actorSlotsFromThingIds(a, catalog()), head: hatIn.value || null };
+        a.slots = next;
+        a.thingIds = thingIdsFromSlots(next);
+      });
+    });
+    body.append(field('Hat slot', hatIn));
+
+    const handOpts = [
+      { value: '', label: '— none —' },
+      ...thingsForSlot(catalog(), 'hand').map((t) => ({ value: t.id, label: t.name })),
+    ];
+    const handIn = selectInput(handOpts, slots.hand ?? '');
+    handIn.addEventListener('change', () => {
+      patchActors((cat) => {
+        const a = cat.find((x) => x.id === actor.id);
+        if (!a) return;
+        const next = { ...actorSlotsFromThingIds(a, catalog()), hand: handIn.value || null };
+        a.slots = next;
+        a.thingIds = thingIdsFromSlots(next);
+      });
+    });
+    body.append(field('Weapon slot', handIn));
+
+    if (actor.summons) {
+      body.append(
         el(
           'p',
-          '',
-          `role ${actor.role} · hp ${actor.hp} · things: ${(actor.thingIds ?? []).join(', ') || '—'}`,
+          'admin-hint',
+          `Summons: ${actor.summons.actorId} · max ${actor.summons.maxAlive} · refill ${actor.summons.refill}`,
         ),
       );
-      if (actor.summons) {
-        card.append(
-          el(
-            'p',
-            'admin-hint',
-            `summons ${actor.summons.actorId} · maxAlive ${actor.summons.maxAlive} · refill ${actor.summons.refill}`,
-          ),
-        );
-      }
-      body.append(card);
     }
   }
 
@@ -298,7 +463,11 @@ export function createStudioDock(ctx) {
       const ol = el('ol', 'studio-steps');
       for (const step of script.steps ?? []) {
         const li = el('li', '', step.id);
-        const detail = el('code', '', JSON.stringify(step.when ?? step.while ?? {}) + ' → ' + JSON.stringify(step.then ?? {}));
+        const detail = el(
+          'code',
+          '',
+          `${JSON.stringify(step.when ?? step.while ?? {})} → ${JSON.stringify(step.then ?? {})}`,
+        );
         li.append(el('br'), detail);
         ol.append(li);
       }
@@ -340,7 +509,7 @@ export function createStudioDock(ctx) {
     );
     const flow = el('ol', 'studio-steps');
     flow.append(el('li', '', 'Author a hat / sword on the Things pad'));
-    flow.append(el('li', '', 'Build an Enemy Captain on Actors that equips them'));
+    flow.append(el('li', '', 'Equip an Actor (or the player via Character Setup) with those Things'));
     flow.append(el('li', '', 'Plan the chest → captain → undead refill → loot chain on Events'));
     flow.append(el('li', '', 'Review the workshop layout on Worlds'));
     body.append(flow);

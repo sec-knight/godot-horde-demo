@@ -151,7 +151,13 @@ export function createStudioWorkshop(scene) {
         body.position.y = ((actor.size ?? 1.1) * 1.4) / 2;
         mannequin.add(body);
 
-        const equipped = (actor.thingIds ?? [])
+        const slotMap = actor.slots ?? {};
+        const equippedIds = [
+          slotMap.head,
+          slotMap.hand,
+          ...(actor.thingIds ?? []),
+        ].filter(Boolean);
+        const equipped = [...new Set(equippedIds)]
           .map((id) => things.find((t) => t.id === id))
           .filter(Boolean);
         for (const thing of equipped) {

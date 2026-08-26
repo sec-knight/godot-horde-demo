@@ -66,6 +66,42 @@ export function newThingDraft(name = 'New Thing') {
     name,
     kind: 'equip',
     slot: 'hand',
+    style: 'sword',
     parts: [defaultPart('box')],
   };
+}
+
+export function newActorDraft(name = 'New Actor') {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40) || 'actor';
+  return {
+    id: `${slug}-${Math.random().toString(36).slice(2, 5)}`,
+    name,
+    role: 'minion',
+    hp: 30,
+    speed: 2.4,
+    size: 1.1,
+    color: '#6a7380',
+    slots: { head: null, hand: null },
+    thingIds: [],
+  };
+}
+
+/** Normalize actor.thingIds ↔ slots for equip UI. */
+export function actorSlotsFromThingIds(actor, catalog = []) {
+  const slots = { head: null, hand: null, ...(actor.slots ?? {}) };
+  for (const id of actor.thingIds ?? []) {
+    const t = catalog.find((x) => x.id === id);
+    if (!t) continue;
+    if (t.slot === 'head') slots.head = id;
+    if (t.slot === 'hand') slots.hand = id;
+  }
+  return slots;
+}
+
+export function thingIdsFromSlots(slots = {}) {
+  return [slots.head, slots.hand].filter(Boolean);
 }
