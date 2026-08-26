@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "foundation": {
+    "id": "studio",
+    "name": "Domain Workshop",
+    "author": "mark",
+    "description": "Prototyping level with Things / Actors / Events / Worlds pads. Programmer-art authoring sandbox.",
+    "tags": ["studio", "workshop", "authoring"]
+  },
+  "world": {
+    "arenaRadius": 36,
+    "playerSpawn": { "x": 0, "z": 0 },
+    "gate": { "x": 0, "z": -32, "size": 1.2 },
+    "portal": { "x": 0, "z": 32 },
+    "obstacles": [],
+    "environment": {
+      "sky": "#c5d6e4",
+      "ground": "#5a6b52",
+      "fogNear": 48,
+      "fogFar": 90
+    },
+    "zones": [
+      {
+        "id": "pad-things",
+        "domain": "things",
+        "label": "THINGS",
+        "x": -14,
+        "z": -12,
+        "width": 16,
+        "depth": 14,
+        "color": "#c9a46a"
+      },
+      {
+        "id": "pad-actors",
+        "domain": "actors",
+        "label": "ACTORS",
+        "x": 14,
+        "z": -12,
+        "width": 16,
+        "depth": 14,
+        "color": "#5ba8d8"
+      },
+      {
+        "id": "pad-events",
+        "domain": "events",
+        "label": "EVENTS",
+        "x": -14,
+        "z": 14,
+        "width": 16,
+        "depth": 14,
+        "color": "#e08a2e"
+      },
+      {
+        "id": "pad-worlds",
+        "domain": "world",
+        "label": "WORLDS",
+        "x": 14,
+        "z": 14,
+        "width": 16,
+        "depth": 14,
+        "color": "#6bbf7a"
+      }
+    ]
+  },
+  "things": {
+    "player": { "hp": 100, "radius": 0.55, "speed": 9.5 },
+    "gate": { "hp": 500 },
+    "enemy": {
+      "hp": 20,
+      "size": 1.1,
+      "speed": 2.6,
+      "contactDamage": 9,
+      "gateDamage": 1.2,
+      "knockback": 2.8
+    },
+    "catalog": [
+      {
+        "id": "hat-captain",
+        "name": "Captain Hat",
+        "kind": "equip",
+        "slot": "head",
+        "parts": [
+          {
+            "id": "brim",
+            "primitive": "cylinder",
+            "x": 0,
+            "y": 0.05,
+            "z": 0,
+            "sx": 0.55,
+            "sy": 0.06,
+            "sz": 0.55,
+            "color": "#1a1a1a"
+          },
+          {
+            "id": "crown",
+            "primitive": "cylinder",
+            "x": 0,
+            "y": 0.22,
+            "z": 0,
+            "sx": 0.32,
+            "sy": 0.28,
+            "sz": 0.32,
+            "color": "#222222"
+          },
+          {
+            "id": "plume",
+            "primitive": "sphere",
+            "x": 0.05,
+            "y": 0.42,
+            "z": -0.05,
+            "sx": 0.12,
+            "sy": 0.18,
+            "sz": 0.12,
+            "color": "#c53d4a"
+          }
+        ]
+      },
+      {
+        "id": "sword-captain",
+        "name": "Captain Sword",
+        "kind": "equip",
+        "slot": "hand",
+        "parts": [
+          {
+            "id": "blade",
+            "primitive": "box",
+            "x": 0,
+            "y": 0.55,
+            "z": 0,
+            "sx": 0.08,
+            "sy": 0.9,
+            "sz": 0.16,
+            "color": "#d8dde8"
+          },
+          {
+            "id": "guard",
+            "primitive": "box",
+            "x": 0,
+            "y": 0.12,
+            "z": 0,
+            "sx": 0.36,
+            "sy": 0.08,
+            "sz": 0.12,
+            "color": "#c9a46a"
+          },
+          {
+            "id": "grip",
+            "primitive": "cylinder",
+            "x": 0,
+            "y": -0.08,
+            "z": 0,
+            "sx": 0.07,
+            "sy": 0.28,
+            "sz": 0.07,
+            "color": "#4a3020"
+          }
+        ]
+      },
+      {
+        "id": "chest-oak",
+        "name": "Oak Chest",
+        "kind": "prop",
+        "slot": "world",
+        "parts": [
+          {
+            "id": "body",
+            "primitive": "box",
+            "x": 0,
+            "y": 0.35,
+            "z": 0,
+            "sx": 1.1,
+            "sy": 0.7,
+            "sz": 0.7,
+            "color": "#8b5a2b"
+          },
+          {
+            "id": "lid",
+            "primitive": "box",
+            "x": 0,
+            "y": 0.78,
+            "z": 0,
+            "sx": 1.14,
+            "sy": 0.16,
+            "sz": 0.74,
+            "color": "#6e4420"
+          },
+          {
+            "id": "lock",
+            "primitive": "sphere",
+            "x": 0,
+            "y": 0.55,
+            "z": 0.38,
+            "sx": 0.12,
+            "sy": 0.12,
+            "sz": 0.12,
+            "color": "#c9a46a"
+          }
+        ]
+      }
+    ]
+  },
+  "actors": {
+    "player": {
+      "knockback": 4.5,
+      "hitStop": 0.06,
+      "dodgeCooldown": 0.85,
+      "dodgeDuration": 0.28,
+      "iFrameDuration": 0.35,
+      "jumpVelocity": 7.2,
+      "gravity": 22,
+      "mouseSensitivity": 0.0022
+    },
+    "camera": { "distance": 4.2, "height": 1.8, "lookHeight": 1.1 },
+    "horde": {
+      "maxEnemies": 300,
+      "contactCooldown": 0.8,
+      "gateContactCooldown": 1.2,
+      "attackRange": 1.55,
+      "telegraph": 0.48,
+      "bonk": 0.22,
+      "recover": 0.4
+    },
+    "corpse": { "lifetime": 2.8, "bounce": 0.42 },
+    "catalog": [
+      {
+        "id": "undead-soldier",
+        "name": "Undead Soldier",
+        "role": "minion",
+        "hp": 18,
+        "speed": 2.4,
+        "size": 1.0,
+        "color": "#6a8f6a",
+        "thingIds": []
+      },
+      {
+        "id": "enemy-captain",
+        "name": "Enemy Captain",
+        "role": "elite",
+        "hp": 140,
+        "speed": 2.1,
+        "size": 1.35,
+        "color": "#4a5568",
+        "thingIds": ["hat-captain", "sword-captain"],
+        "summons": {
+          "actorId": "undead-soldier",
+          "maxAlive": 100,
+          "refill": true
+        }
+      }
+    ]
+  },
+  "events": {
+    "waveCountdown": 3,
+    "betweenWavePause": 1.4,
+    "waveCount": {
+      "kind": "fixed",
+      "count": 0
+    },
+    "scoring": {
+      "perKill": 12,
+      "perSecondNear": 6,
+      "waveClearBonus": 40
+    },
+    "spawn": {
+      "ringBaseRadius": 2.2,
+      "ringSpacing": 1.7,
+      "ringGrowth": 4
+    },
+    "scripts": [
+      {
+        "id": "chest-captain-gauntlet",
+        "name": "Chest Captain Gauntlet",
+        "description": "Walk near the chest → summon captain → captain keeps up to 100 undead soldiers → kill captain → chest unlocks.",
+        "steps": [
+          {
+            "id": "approach",
+            "when": { "nearThing": "chest-oak", "radius": 4 },
+            "then": { "spawnActor": "enemy-captain", "at": "events-stage" }
+          },
+          {
+            "id": "reinforce",
+            "while": { "actorAlive": "enemy-captain" },
+            "then": {
+              "summonLoop": {
+                "actorId": "undead-soldier",
+                "maxAlive": 100,
+                "refill": true
+              }
+            }
+          },
+          {
+            "id": "loot",
+            "when": { "actorDead": "enemy-captain" },
+            "then": { "unlockThing": "chest-oak" }
+          }
+        ]
+      }
+    ]
+  }
+}

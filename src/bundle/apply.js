@@ -92,6 +92,8 @@ export function applyBundle(ctx, bundle) {
   ctx.arena.applyWorld(world);
   ctx.player.setSpawn(world.playerSpawn);
 
+  ctx.workshop?.applyBundle(bundle);
+
   if (ctx.onApplied) ctx.onApplied(bundle);
 }
 

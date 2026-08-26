@@ -49,6 +49,16 @@ function resolveWorld(world, arenaRadius) {
       fogNear: world.environment?.fogNear ?? 42,
       fogFar: world.environment?.fogFar ?? 70,
     },
+    zones: (world.zones ?? []).map((z) => ({
+      id: z.id,
+      domain: z.domain,
+      label: z.label ?? String(z.domain ?? 'zone').toUpperCase(),
+      x: z.x ?? 0,
+      z: z.z ?? 0,
+      width: z.width ?? 12,
+      depth: z.depth ?? 12,
+      color: z.color,
+    })),
   };
 }
 
@@ -81,6 +91,14 @@ export function validateBundle(bundle) {
 
   if (!b.foundation?.id) b.foundation = { ...b.foundation, id: 'custom', name: 'Custom' };
   if (!b.foundation?.name) b.foundation.name = b.foundation.id;
+
+  // Authoring catalogs (studio) — pass through; merge already replaced arrays
+  b.things = b.things ?? {};
+  b.things.catalog = Array.isArray(b.things.catalog) ? b.things.catalog : [];
+  b.actors = b.actors ?? {};
+  b.actors.catalog = Array.isArray(b.actors.catalog) ? b.actors.catalog : [];
+  b.events = b.events ?? {};
+  b.events.scripts = Array.isArray(b.events.scripts) ? b.events.scripts : [];
 
   return b;
 }

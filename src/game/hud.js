@@ -5,6 +5,8 @@ export function createHUD() {
     hud: document.getElementById('hud'),
     menu: document.getElementById('menu'),
     gameover: document.getElementById('gameover'),
+    studio: document.getElementById('studio-hud'),
+    studioDomain: document.getElementById('studio-domain'),
     gateText: document.getElementById('gate-text'),
     gateFill: document.getElementById('gate-fill'),
     hpText: document.getElementById('hp-text'),
@@ -31,16 +33,40 @@ export function createHUD() {
     els.menu.classList.remove('hidden');
     els.gameover.classList.add('hidden');
     els.hud.classList.add('hidden');
+    els.studio?.classList.add('hidden');
   }
 
   function showHud() {
     els.menu.classList.add('hidden');
     els.gameover.classList.add('hidden');
     els.hud.classList.remove('hidden');
+    els.studio?.classList.add('hidden');
+  }
+
+  function showStudio() {
+    els.menu.classList.add('hidden');
+    els.gameover.classList.add('hidden');
+    els.hud.classList.add('hidden');
+    els.studio?.classList.remove('hidden');
+  }
+
+  function setStudioDomain(domain) {
+    if (!els.studioDomain) return;
+    const labels = {
+      things: 'Things · craft props & gear',
+      actors: 'Actors · assemble enemies',
+      events: 'Events · chain triggers',
+      world: 'Worlds · review layouts',
+    };
+    els.studioDomain.textContent = domain
+      ? labels[domain] ?? domain
+      : 'Plaza · walk onto a domain pad';
+    els.studioDomain.dataset.domain = domain ?? 'plaza';
   }
 
   function showGameOver({ reason, score, kills, waves, time, best }) {
     els.gameover.classList.remove('hidden');
+    els.studio?.classList.add('hidden');
     els.goTitle.textContent = 'Game Over';
     els.goFlavor.textContent =
       reason === 'gate' ? 'The gate was breached.' : 'You fell in battle.';
@@ -82,11 +108,13 @@ export function createHUD() {
   return {
     showMenu,
     showHud,
+    showStudio,
     showGameOver,
     update,
     showCallout,
     hideCallout,
     setHintVisible,
+    setStudioDomain,
     els,
   };
 }

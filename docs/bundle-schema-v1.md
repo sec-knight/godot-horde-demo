@@ -326,16 +326,93 @@ Add fields inside existing domains when the change is content or tuning.
 | Consumer | Reads bundle via |
 |----------|------------------|
 | In-game Admin Studio | Live edit → export `.bundle.json` |
+| Domain Workshop (studio preset) | Spatial pads + catalogs; Save draft / Export |
 | Game boot | `?bundle=pressure-test` or localStorage active preset |
 | Future dev studio repo | Read/write `bundles/*.bundle.json` in git |
 | Future UGC | Upload bundle; server validates schema |
 
 ---
 
+## Studio authoring (additive v1 fields)
+
+Used by the **Domain Workshop** prototyping level (`bundles/studio.bundle.json`). Combat arenas may omit these.
+
+### `world.zones[]`
+
+Floor pads that map to domains:
+
+```jsonc
+{
+  "id": "pad-things",
+  "domain": "things",       // things | actors | events | world
+  "label": "THINGS",
+  "x": -14, "z": -12,
+  "width": 16, "depth": 14,
+  "color": "#c9a46a"
+}
+```
+
+### `things.catalog[]`
+
+Programmer-art assemblies from box / sphere / cylinder parts:
+
+```jsonc
+{
+  "id": "sword-captain",
+  "name": "Captain Sword",
+  "kind": "equip",          // equip | prop
+  "slot": "hand",           // head | hand | world
+  "parts": [
+    {
+      "id": "blade",
+      "primitive": "box",   // box | sphere | cylinder
+      "x": 0, "y": 0.55, "z": 0,
+      "sx": 0.08, "sy": 0.9, "sz": 0.16,
+      "color": "#d8dde8"
+    }
+  ]
+}
+```
+
+### `actors.catalog[]`
+
+Actors reference Things by id and may declare summons:
+
+```jsonc
+{
+  "id": "enemy-captain",
+  "name": "Enemy Captain",
+  "role": "elite",
+  "hp": 140,
+  "thingIds": ["hat-captain", "sword-captain"],
+  "summons": { "actorId": "undead-soldier", "maxAlive": 100, "refill": true }
+}
+```
+
+### `events.scripts[]`
+
+Authored trigger chains (data-first; workshop displays them; runtime playthrough is iterative):
+
+```jsonc
+{
+  "id": "chest-captain-gauntlet",
+  "name": "Chest Captain Gauntlet",
+  "steps": [
+    { "when": { "nearThing": "chest-oak", "radius": 4 }, "then": { "spawnActor": "enemy-captain" } },
+    { "while": { "actorAlive": "enemy-captain" }, "then": { "summonLoop": { "actorId": "undead-soldier", "maxAlive": 100, "refill": true } } },
+    { "when": { "actorDead": "enemy-captain" }, "then": { "unlockThing": "chest-oak" } }
+  ]
+}
+```
+
+**Authoring loop:** craft Things → compose Actors that wear them → plan Events that spawn/summon/unlock → review Worlds pads.
+
+---
+
 ## Versioning
 
-- `schemaVersion: 1` — initial domains + fields in this doc
-- Future v2 may add: rectangular obstacles, event scripts, multi-portal, thing catalog refs by ID
+- `schemaVersion: 1` — initial domains + fields in this doc (+ studio catalogs/zones/scripts)
+- Future v2 may add: rectangular obstacles, live event script runner, multi-portal, richer gizmos
 
 Migrators: `migrateV1toV2(bundle)` before apply.
 
@@ -347,4 +424,7 @@ Migrators: `migrateV1toV2(bundle)` before apply.
 |------|------|
 | `bundles/default.bundle.json` | Canonical full default (matches shipped game) |
 | `bundles/pressure-test.bundle.json` | Example stress preset |
+| `bundles/studio.bundle.json` | Domain Workshop prototyping level |
 | `src/game/config.js` | Engine defaults until RuntimeStore lands |
+| `src/game/studioWorkshop.js` | Spatial pads + catalog previews |
+| `src/studio/studioDock.js` | Authoring dock (Things gizmos, catalogs) |

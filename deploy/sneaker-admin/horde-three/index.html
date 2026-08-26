@@ -9,8 +9,8 @@
     <meta name="theme-color" content="#0a1018" />
     <title>Horde Defense · Three.js</title>
     <link rel="icon" href="/admin/horde-three/assets/logo.svg" type="image/svg+xml" />
-    <script type="module" crossorigin src="/admin/horde-three/assets/index-CZja5BsC.js"></script>
-    <link rel="stylesheet" crossorigin href="/admin/horde-three/assets/index-BxbhhW3Y.css">
+    <script type="module" crossorigin src="/admin/horde-three/assets/index-CejSRIlS.js"></script>
+    <link rel="stylesheet" crossorigin href="/admin/horde-three/assets/index-CeLEBgkn.css">
   </head>
   <body>
     <div id="app">
@@ -48,6 +48,18 @@
         <div id="hint" class="hint">Click to capture mouse · Esc releases</div>
       </div>
 
+      <div id="studio-hud" class="hidden" aria-live="polite">
+        <div class="brand-mark" data-sg-coin="sm"></div>
+        <div class="studio-banner">
+          <div class="studio-banner-title">Domain Workshop</div>
+          <div id="studio-domain" class="studio-banner-domain" data-domain="plaza">
+            Plaza · walk onto a domain pad
+          </div>
+        </div>
+        <div class="studio-hint">Esc opens author dock · click canvas to walk · Leave from dock</div>
+        <button type="button" id="btn-studio-leave" class="btn studio-leave-btn">Leave studio</button>
+      </div>
+
       <div id="menu" class="overlay">
         <div class="menu-card">
           <div class="menu-logo" data-sg-coin="lg"></div>
@@ -58,11 +70,12 @@
             Sword, shield, spin, slam, dodge.
           </p>
           <button id="btn-play" class="btn primary">Play Arena</button>
+          <button id="btn-studio" class="btn">Admin · Domain Workshop</button>
           <div class="controls-cheat">
             <div><kbd>WASD</kbd> move · mouse look · <kbd>V</kbd> camera</div>
             <div><kbd>LMB</kbd> slash combo · <kbd>RMB</kbd> block · hold <kbd>RMB</kbd>+<kbd>LMB</kbd> push</div>
             <div><kbd>E</kbd> heavy · <kbd>Q</kbd> spin · <kbd>F</kbd> slam · <kbd>Shift</kbd> dodge · <kbd>Space</kbd> jump</div>
-            <div><kbd>`</kbd> admin studio (on /admin/ builds)</div>
+            <div>Workshop: walk domain pads · Esc opens authoring dock · <kbd>`</kbd> numeric admin</div>
           </div>
         </div>
       </div>

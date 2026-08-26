@@ -8,10 +8,12 @@ import { createCombat } from './combat.js';
 import { createWaveController } from './waves.js';
 import { createHUD } from './hud.js';
 import { createAudio } from './audio.js';
-import { loadPreset } from '../bundle/load.js';
+import { loadPreset, loadBundle } from '../bundle/load.js';
 import { applyBundle } from '../bundle/apply.js';
 import { getBundle, getScoring } from '../runtime/bundleState.js';
 import { createAdminStudio } from '../admin/panel.js';
+import { createStudioWorkshop } from './studioWorkshop.js';
+import { createStudioDock } from '../studio/studioDock.js';
 
 const BEST_KEY = 'threejs-horde-best';
 
@@ -29,6 +31,7 @@ export function createGame(canvas) {
   const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 120);
 
   const arena = createArena(scene);
+  const workshop = createStudioWorkshop(scene);
   const bundle = loadPreset('default');
   const spawn = bundle.world.playerSpawn;
   const player = createPlayer(scene, new THREE.Vector3(spawn.x, 0, spawn.z));
@@ -39,7 +42,7 @@ export function createGame(canvas) {
   const input = createInput(canvas);
   const hud = createHUD();
 
-  let mode = 'menu'; // menu | playing | gameover
+  let mode = 'menu'; // menu | playing | gameover | studio
   let gateHp = TUNING.gateHp;
   let score = 0;
   let kills = 0;
@@ -48,6 +51,7 @@ export function createGame(canvas) {
   let raf = 0;
   let last = performance.now();
   let wasBlocking = false;
+  let lastDomain = null;
 
   const bundleCtx = {
     arena,
@@ -55,6 +59,7 @@ export function createGame(canvas) {
     waves,
     swarm,
     scene,
+    workshop,
     getBundle,
     onApplied: null,
     onApply: null,
@@ -70,6 +75,14 @@ export function createGame(canvas) {
   const admin = createAdminStudio({
     ...bundleCtx,
     onApply: bundleCtx.onApply,
+  });
+
+  const dock = createStudioDock({
+    getActiveDomain: () => workshop.getActiveDomain(),
+    onCatalogChange: (b) => {
+      workshop.rebuildPreviews(b);
+    },
+    onLeave: () => leaveStudio(),
   });
 
   waves.on('countdown', ({ wave, value }) => {
@@ -111,11 +124,53 @@ export function createGame(canvas) {
 
   function start() {
     audio.unlock();
+    workshop.setVisible(false);
+    arena.setSiegeVisible(true);
+    dock.setVisible(false);
+    // Return to combat preset if we were in studio
+    if (getBundle().foundation?.id === 'studio') {
+      applyBundle(bundleCtx, loadPreset('default'));
+    }
     resetRun();
     mode = 'playing';
     hud.showHud();
     hud.setHintVisible(!matchMedia('(pointer: coarse)').matches);
     input.requestLock();
+  }
+
+  function startStudio() {
+    audio.unlock();
+    swarm.clear();
+    const draft = dock.loadDraft();
+    const studioBundle = draft?.foundation?.id === 'studio' ? loadBundle(draft) : loadPreset('studio');
+    applyBundle(bundleCtx, studioBundle);
+    workshop.setVisible(true);
+    arena.setSiegeVisible(false);
+    player.state.hp = TUNING.playerHp;
+    player.state.alive = true;
+    player.state.vy = 0;
+    player.setSpawn(getBundle().world.playerSpawn);
+    player.state.yaw = 0;
+    player.state.pitch = 0.1;
+    mode = 'studio';
+    lastDomain = null;
+    hud.showStudio();
+    hud.setStudioDomain(null);
+    dock.setVisible(true);
+    input.requestLock();
+  }
+
+  function leaveStudio() {
+    document.exitPointerLock?.();
+    workshop.setVisible(false);
+    arena.setSiegeVisible(true);
+    dock.setVisible(false);
+    admin.enabled && admin.close();
+    applyBundle(bundleCtx, loadPreset('default'));
+    swarm.clear();
+    mode = 'menu';
+    hud.showMenu();
+    swarm.spawnWave(18, arena.portalPosition, arena.gatePosition);
   }
 
   function endRun(reason) {
@@ -222,6 +277,21 @@ export function createGame(canvas) {
 
       const g = gateHp / TUNING.gateHp;
       arena.gateMesh.material.color.setRGB(0.86 * (0.4 + 0.6 * g), 0.21 * g, 0.27 * g);
+    } else if (mode === 'studio') {
+      const { dx, dy } = input.consumeMouseDelta();
+      player.applyLook(dx, dy);
+      if (input.consumeAction('jump')) player.tryJump();
+      if (input.consumeAction('camera')) player.cycleCamera();
+      // Soft walk — no combat actions
+      player.update(dt, input, arena.clampToArena);
+      updateCamera(camera, player, dt);
+
+      const domain = workshop.updateFromPlayer(player.position.x, player.position.z);
+      if (domain !== lastDomain) {
+        lastDomain = domain;
+        hud.setStudioDomain(domain);
+        if (dock.isVisible()) dock.render();
+      }
     } else {
       swarm.update(dt * 0.35, player.position, arena.gatePosition);
       const t = now * 0.00025;
@@ -234,16 +304,19 @@ export function createGame(canvas) {
 
   function bindUI() {
     document.getElementById('btn-play')?.addEventListener('click', () => start());
+    document.getElementById('btn-studio')?.addEventListener('click', () => startStudio());
     document.getElementById('btn-retry')?.addEventListener('click', () => start());
     document.getElementById('btn-menu')?.addEventListener('click', () => {
       mode = 'menu';
       swarm.clear();
       hud.showMenu();
     });
+    document.getElementById('btn-studio-leave')?.addEventListener('click', () => leaveStudio());
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape') {
         document.exitPointerLock?.();
         hud.setHintVisible(true);
+        if (mode === 'studio') dock.setVisible(true);
       }
     });
   }
@@ -256,13 +329,17 @@ export function createGame(canvas) {
   globalThis.__horde = {
     player,
     admin,
+    dock,
+    workshop,
     getBundle,
+    startStudio,
     isBlocking: () => player.state.blocking,
     shieldPos: () => ({ ...player.shield.position }),
   };
 
   return {
     start,
+    startStudio,
     admin,
     dispose() {
       cancelAnimationFrame(raf);

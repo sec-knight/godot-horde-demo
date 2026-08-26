@@ -137,6 +137,11 @@ export function createArena(scene) {
     applyEnvironmentToScene(scene, { ground }, world.environment);
   }
 
+  function setSiegeVisible(v) {
+    gateGroup.visible = v;
+    portalGroup.visible = v;
+  }
+
   return {
     group,
     gateGroup,
@@ -150,6 +155,7 @@ export function createArena(scene) {
       return gateGroup.position;
     },
     applyWorld,
+    setSiegeVisible,
     clampToArena(pos, radius = TUNING.playerRadius) {
       const lim = TUNING.arenaRadius - radius - 0.4;
       const d = Math.hypot(pos.x, pos.z);
