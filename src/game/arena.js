@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
+import { ARENA_OBSTACLES, resolveObstacleCollisions } from './obstacles.js';
 
 export function createArena(scene) {
   const group = new THREE.Group();
@@ -37,12 +38,13 @@ export function createArena(scene) {
     group.add(wall);
   }
 
-  // Large soft dome / berm accent (matches the big grey sphere feel)
+  // Large soft dome / berm — solid obstacle (see obstacles.js)
+  const westBerm = ARENA_OBSTACLES[0];
   const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(10, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    new THREE.SphereGeometry(westBerm.radius + 0.8, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
     new THREE.MeshLambertMaterial({ color: 0xb8b8b8 }),
   );
-  dome.position.set(-18, 0, -6);
+  dome.position.set(westBerm.x, 0, westBerm.z);
   group.add(dome);
 
   // Siege gate — bright red cube on a dark pedestal, near -Z
@@ -111,6 +113,7 @@ export function createArena(scene) {
         pos.x *= s;
         pos.z *= s;
       }
+      resolveObstacleCollisions(pos, radius);
     },
   };
 }

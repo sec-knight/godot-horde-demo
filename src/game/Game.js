@@ -7,6 +7,7 @@ import { createSwarm } from './swarm.js';
 import { createCombat } from './combat.js';
 import { createWaveController } from './waves.js';
 import { createHUD } from './hud.js';
+import { createAudio } from './audio.js';
 
 const BEST_KEY = 'threejs-horde-best';
 
@@ -26,7 +27,8 @@ export function createGame(canvas) {
   const arena = createArena(scene);
   const player = createPlayer(scene, new THREE.Vector3(0, 0, -4));
   const swarm = createSwarm(scene);
-  const combat = createCombat(player, swarm);
+  const audio = createAudio();
+  const combat = createCombat(player, swarm, audio);
   const waves = createWaveController(swarm, arena);
   const input = createInput(canvas);
   const hud = createHUD();
@@ -39,6 +41,7 @@ export function createGame(canvas) {
   let best = Number(localStorage.getItem(BEST_KEY) || 0);
   let raf = 0;
   let last = performance.now();
+  let wasBlocking = false;
 
   waves.on('countdown', ({ wave, value }) => {
     hud.showCallout(wave, value);
@@ -78,6 +81,7 @@ export function createGame(canvas) {
   }
 
   function start() {
+    audio.unlock();
     resetRun();
     mode = 'playing';
     hud.showHud();
@@ -102,17 +106,20 @@ export function createGame(canvas) {
   }
 
   function handleCombatInput() {
-    let gained = 0;
-    if (input.consumeAction('light')) gained += combat.light();
-    if (input.consumeAction('heavy')) gained += combat.heavy();
-    if (input.consumeAction('spin')) gained += combat.spin();
-    if (input.consumeAction('slam')) gained += combat.slam();
-    if (input.consumeAction('dodge')) player.tryDodge();
-    if (input.consumeAction('jump')) player.tryJump();
-    if (gained > 0) {
-      kills += gained;
-      score += gained * TUNING.scorePerKill;
+    if (input.consumeAction('light')) combat.light();
+    if (input.consumeAction('push')) combat.push();
+    if (input.consumeAction('heavy')) combat.heavy();
+    if (input.consumeAction('spin')) combat.spin();
+    if (input.consumeAction('slam')) combat.slam();
+    if (input.consumeAction('dodge')) {
+      if (player.tryDodge()) audio.dodge();
     }
+    if (input.consumeAction('jump')) player.tryJump();
+    if (input.consumeAction('camera')) player.cycleCamera();
+
+    const blocking = input.isBlocking();
+    if (blocking && !wasBlocking) audio.block();
+    wasBlocking = blocking;
   }
 
   function tick(now) {
@@ -125,22 +132,33 @@ export function createGame(canvas) {
       player.applyLook(dx, dy);
       handleCombatInput();
       player.update(dt, input, arena.clampToArena);
-      combat.update(dt);
+      const gained = combat.update(dt);
+      if (gained > 0) {
+        kills += gained;
+        score += gained * TUNING.scorePerKill;
+      }
       waves.update(dt);
 
       swarm.update(
         dt,
         player.position,
         arena.gatePosition,
-        () => {
-          const dealt = player.takeDamage(TUNING.enemyContactDamage);
-          if (dealt > 0) score += 1;
+        (enemyIndex) => {
+          const pos = swarm.getPosition(enemyIndex);
+          const dealt = player.takeDamage(TUNING.enemyContactDamage, pos.x, pos.z);
+          if (dealt > 0) {
+            audio.hurt();
+            combat.addShake(0.12);
+            score += 1;
+          }
           if (!player.state.alive) endRun('player');
         },
         () => {
           gateHp = Math.max(0, gateHp - TUNING.enemyGateDamage);
           arena.gateMesh.material.emissive.setHex(0xff4444);
-          arena.gateMesh.material.emissiveIntensity = 0.55;
+          arena.gateMesh.material.emissiveIntensity = 0.85;
+          audio.gateHit();
+          combat.addShake(0.08);
           if (gateHp <= 0) endRun('gate');
         },
       );
@@ -209,6 +227,13 @@ export function createGame(canvas) {
   // Place a preview swarm on the menu for atmosphere
   swarm.spawnWave(18, arena.portalPosition, arena.gatePosition);
   raf = requestAnimationFrame(tick);
+
+  // Dev/test hook for automation
+  globalThis.__horde = {
+    player,
+    isBlocking: () => player.state.blocking,
+    shieldPos: () => ({ ...player.shield.position }),
+  };
 
   return {
     start,

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "foundation": {
+    "id": "pressure-test",
+    "name": "Pressure Test",
+    "author": "mark",
+    "description": "Aggressive quadratic horde ramp for stress testing instancing and berm pathing.",
+    "tags": ["stress", "admin"],
+    "parentId": "default"
+  },
+  "things": {
+    "enemy": { "hp": 16, "speed": 3.0, "contactDamage": 11 }
+  },
+  "actors": {
+    "horde": { "maxEnemies": 300 }
+  },
+  "events": {
+    "waveCountdown": 2,
+    "betweenWavePause": 1.0,
+    "waveCount": {
+      "kind": "quadratic",
+      "base": 8,
+      "quadratic": 4.5,
+      "linear": 6,
+      "cap": 300
+    }
+  }
+}
