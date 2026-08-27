@@ -39,3 +39,5 @@ npm run preview
 ## Notes
 
 This is intentionally a feel prototype, not a line-by-line port of the Godot project (source for that lives outside this empty scaffold). Numbers and layout are tuned against the public sneaker.games WASM build.
+
+This repo is extra source for [sneaker.games](https://github.com/sec-knight/sneaker.games) (project `sneaker-games-site`). Canonical architecture is there, not here — see `AGENTS.md`.
