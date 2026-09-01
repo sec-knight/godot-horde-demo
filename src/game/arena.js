@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { COLORS, TUNING } from './config.js';
+import { getObstacles, resolveObstacleCollisions } from './obstacles.js';
+import { applyEnvironmentToScene } from '../bundle/apply.js';
 
 export function createArena(scene) {
   const group = new THREE.Group();
@@ -14,7 +16,6 @@ export function createArena(scene) {
   ground.receiveShadow = false;
   group.add(ground);
 
-  // Dark perimeter ring / berm
   const berm = new THREE.Mesh(
     new THREE.RingGeometry(TUNING.arenaRadius - 0.9, TUNING.arenaRadius + 1.4, 64),
     new THREE.MeshLambertMaterial({ color: COLORS.berm, side: THREE.DoubleSide }),
@@ -23,8 +24,8 @@ export function createArena(scene) {
   berm.position.y = 0.02;
   group.add(berm);
 
-  // Side field berms (blocky walls like the Godot demo)
   const wallMat = new THREE.MeshLambertMaterial({ color: COLORS.bermAccent });
+  const walls = [];
   for (let i = 0; i < 10; i++) {
     const ang = (i / 10) * Math.PI * 2 + 0.2;
     const wall = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.6, 1.1), wallMat);
@@ -35,19 +36,31 @@ export function createArena(scene) {
     );
     wall.lookAt(0, 0.8, 0);
     group.add(wall);
+    walls.push(wall);
   }
 
-  // Large soft dome / berm accent (matches the big grey sphere feel)
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(10, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
-    new THREE.MeshLambertMaterial({ color: 0xb8b8b8 }),
-  );
-  dome.position.set(-18, 0, -6);
-  group.add(dome);
+  const obstacleGroup = new THREE.Group();
+  obstacleGroup.name = 'Obstacles';
+  group.add(obstacleGroup);
 
-  // Siege gate — bright red cube on a dark pedestal, near -Z
+  function rebuildObstacleMeshes() {
+    while (obstacleGroup.children.length) {
+      const ch = obstacleGroup.children[0];
+      ch.geometry?.dispose();
+      obstacleGroup.remove(ch);
+    }
+    for (const obs of getObstacles()) {
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(obs.visualRadius ?? obs.radius + 0.8, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        new THREE.MeshLambertMaterial({ color: 0xb8b8b8 }),
+      );
+      dome.position.set(obs.x, 0, obs.z);
+      obstacleGroup.add(dome);
+    }
+  }
+  rebuildObstacleMeshes();
+
   const gateGroup = new THREE.Group();
-  gateGroup.position.set(0, 0, -TUNING.arenaRadius + 4.5);
   group.add(gateGroup);
 
   const pedestal = new THREE.Mesh(
@@ -64,9 +77,7 @@ export function createArena(scene) {
   gateMesh.position.y = 0.45 + TUNING.gateSize / 2;
   gateGroup.add(gateMesh);
 
-  // Far portal — purple glowing cube where the horde pours from
   const portalGroup = new THREE.Group();
-  portalGroup.position.set(0, 0, TUNING.arenaRadius - 3.5);
   group.add(portalGroup);
 
   const portal = new THREE.Mesh(
@@ -87,7 +98,6 @@ export function createArena(scene) {
   portalRing.position.y = 1.5;
   portalGroup.add(portalRing);
 
-  // Soft fill lights
   const hemi = new THREE.HemisphereLight(0xd8e8ff, 0x3a4a28, 0.85);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff2d8, 0.9);
@@ -96,13 +106,56 @@ export function createArena(scene) {
   scene.background = new THREE.Color(COLORS.sky);
   scene.fog = new THREE.Fog(COLORS.sky, 42, 70);
 
+  function repositionWalls(R) {
+    for (let i = 0; i < walls.length; i++) {
+      const ang = (i / walls.length) * Math.PI * 2 + 0.2;
+      walls[i].position.set(Math.cos(ang) * (R + 0.2), 0.8, Math.sin(ang) * (R + 0.2));
+      walls[i].lookAt(0, 0.8, 0);
+    }
+  }
+
+  function applyWorld(world) {
+    const R = world.arenaRadius;
+    TUNING.arenaRadius = R;
+    TUNING.gateSize = world.gate.size;
+
+    ground.geometry.dispose();
+    ground.geometry = new THREE.CircleGeometry(R, 64);
+    berm.geometry.dispose();
+    berm.geometry = new THREE.RingGeometry(R - 0.9, R + 1.4, 64);
+    repositionWalls(R);
+
+    gateGroup.position.set(world.gate.x, 0, world.gate.z);
+    portalGroup.position.set(world.portal.x, 0, world.portal.z);
+
+    const gs = world.gate.size;
+    gateMesh.geometry.dispose();
+    gateMesh.geometry = new THREE.BoxGeometry(gs, gs, gs);
+    gateMesh.position.y = 0.45 + gs / 2;
+
+    rebuildObstacleMeshes();
+    applyEnvironmentToScene(scene, { ground }, world.environment);
+  }
+
+  function setSiegeVisible(v) {
+    gateGroup.visible = v;
+    portalGroup.visible = v;
+  }
+
   return {
     group,
     gateGroup,
     gateMesh,
     portalGroup,
-    portalPosition: portalGroup.position.clone(),
-    gatePosition: gateGroup.position.clone(),
+    ground,
+    get portalPosition() {
+      return portalGroup.position;
+    },
+    get gatePosition() {
+      return gateGroup.position;
+    },
+    applyWorld,
+    setSiegeVisible,
     clampToArena(pos, radius = TUNING.playerRadius) {
       const lim = TUNING.arenaRadius - radius - 0.4;
       const d = Math.hypot(pos.x, pos.z);
@@ -111,6 +164,7 @@ export function createArena(scene) {
         pos.x *= s;
         pos.z *= s;
       }
+      resolveObstacleCollisions(pos, radius);
     },
   };
 }

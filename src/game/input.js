@@ -5,11 +5,13 @@ export function createInput(canvas) {
   const actions = {
     light: false,
     heavy: false,
+    push: false,
     block: false,
     dodge: false,
     spin: false,
     slam: false,
     jump: false,
+    camera: false,
   };
   const touchActive = matchMedia('(pointer: coarse)').matches;
   let pointerLocked = false;
@@ -32,10 +34,11 @@ export function createInput(canvas) {
 
   function onKeyDown(e) {
     keys.add(e.code);
-    if (e.code === 'KeyR') actions.block = true;
+    if (e.code === 'KeyE') actions.heavy = true;
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') actions.dodge = true;
     if (e.code === 'KeyQ') actions.spin = true;
     if (e.code === 'KeyF') actions.slam = true;
+    if (e.code === 'KeyV') actions.camera = true;
     if (e.code === 'Space') {
       e.preventDefault();
       actions.jump = true;
@@ -45,17 +48,23 @@ export function createInput(canvas) {
 
   function onKeyUp(e) {
     keys.delete(e.code);
-    if (e.code === 'KeyR') actions.block = false;
     syncMoveFromKeys();
   }
 
   function onMouseDown(e) {
     mouse.buttons |= 1 << e.button;
-    if (e.button === 0) {
-      if (actions.block) actions.heavy = true; // push from block
-      else actions.light = true;
+    if (e.button === 2) {
+      // RMB = block (held)
+      actions.block = true;
     }
-    if (e.button === 2) actions.heavy = true;
+    if (e.button === 0) {
+      if (actions.block || mouse.buttons & 4 || (mouse.buttons & (1 << 2))) {
+        // Hold block + LMB = shield push
+        actions.push = true;
+      } else {
+        actions.light = true;
+      }
+    }
     if (!pointerLocked && !touchActive) {
       canvas.requestPointerLock?.();
     }
@@ -63,6 +72,7 @@ export function createInput(canvas) {
 
   function onMouseUp(e) {
     mouse.buttons &= ~(1 << e.button);
+    if (e.button === 2) actions.block = false;
   }
 
   function onMouseMove(e) {
@@ -93,7 +103,6 @@ export function createInput(canvas) {
   document.addEventListener('pointerlockchange', onPointerLockChange);
   canvas.addEventListener('contextmenu', onContextMenu);
 
-  // Touch stick + action buttons
   const stick = document.getElementById('stick');
   const knob = document.getElementById('stick-knob');
   const touchLayer = document.getElementById('touch');
@@ -115,9 +124,7 @@ export function createInput(canvas) {
       stickId = null;
       move.x = 0;
       move.y = 0;
-      if (knob) {
-        knob.style.transform = 'translate(0,0)';
-      }
+      if (knob) knob.style.transform = 'translate(0,0)';
     };
     stick?.addEventListener('pointerup', endStick);
     stick?.addEventListener('pointercancel', endStick);
@@ -137,7 +144,6 @@ export function createInput(canvas) {
       if (knob) knob.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
-    // Look drag on right half of screen (outside buttons)
     canvas.addEventListener('pointerdown', (e) => {
       if (e.target.closest?.('.touch-actions, .stick, button, .overlay')) return;
       if (e.clientX < window.innerWidth * 0.45) return;
@@ -154,6 +160,7 @@ export function createInput(canvas) {
       const down = (e) => {
         e.preventDefault();
         if (act === 'block') actions.block = true;
+        else if (act === 'light' && actions.block) actions.push = true;
         else if (act) actions[act] = true;
       };
       const up = () => {
@@ -189,7 +196,8 @@ export function createInput(canvas) {
       return true;
     },
     isBlocking() {
-      return actions.block;
+      // RMB held, or touch block held
+      return actions.block || !!(mouse.buttons & (1 << 2));
     },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);

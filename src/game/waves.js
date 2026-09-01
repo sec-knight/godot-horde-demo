@@ -1,4 +1,6 @@
-import { TUNING, waveEnemyCount } from './config.js';
+import { TUNING } from './config.js';
+import { getEvents } from '../runtime/bundleState.js';
+import { waveCountFromBundle } from '../bundle/waveCount.js';
 
 export function createWaveController(swarm, arena) {
   let wave = 0;
@@ -14,6 +16,15 @@ export function createWaveController(swarm, arena) {
 
   function emit(event, payload) {
     listeners[event]?.(payload);
+  }
+
+  function waveEnemyCount(w) {
+    const ev = getEvents();
+    return waveCountFromBundle(w, ev.waveCount, TUNING.maxEnemies);
+  }
+
+  function betweenPause() {
+    return getEvents().betweenWavePause ?? 1.4;
   }
 
   function startRun() {
@@ -54,7 +65,7 @@ export function createWaveController(swarm, arena) {
       if (swarm.aliveCount === 0) {
         wavesCleared = wave;
         phase = 'between';
-        timer = 1.4;
+        timer = betweenPause();
         emit('cleared', { wave });
       }
       return;
@@ -70,6 +81,12 @@ export function createWaveController(swarm, arena) {
     on,
     startRun,
     update,
+    spawnTestWave(n = 24) {
+      swarm.spawnWave(n, arena.portalPosition, arena.gatePosition);
+      phase = 'fighting';
+      emit('fight', { wave, count: n });
+    },
+    clearHorde: () => swarm.clear(),
     get wave() {
       return wave;
     },

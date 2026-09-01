@@ -5,6 +5,9 @@ export function createHUD() {
     hud: document.getElementById('hud'),
     menu: document.getElementById('menu'),
     gameover: document.getElementById('gameover'),
+    setup: document.getElementById('character-setup'),
+    studio: document.getElementById('studio-hud'),
+    studioDomain: document.getElementById('studio-domain'),
     gateText: document.getElementById('gate-text'),
     gateFill: document.getElementById('gate-fill'),
     hpText: document.getElementById('hp-text'),
@@ -27,19 +30,50 @@ export function createHUD() {
     goBest: document.getElementById('go-best'),
   };
 
-  function showMenu() {
-    els.menu.classList.remove('hidden');
+  function hideAllOverlays() {
+    els.menu.classList.add('hidden');
     els.gameover.classList.add('hidden');
     els.hud.classList.add('hidden');
+    els.studio?.classList.add('hidden');
+    els.setup?.classList.add('hidden');
+  }
+
+  function showMenu() {
+    hideAllOverlays();
+    els.menu.classList.remove('hidden');
   }
 
   function showHud() {
-    els.menu.classList.add('hidden');
-    els.gameover.classList.add('hidden');
+    hideAllOverlays();
     els.hud.classList.remove('hidden');
   }
 
+  function showSetup() {
+    hideAllOverlays();
+    els.setup?.classList.remove('hidden');
+  }
+
+  function showStudio() {
+    hideAllOverlays();
+    els.studio?.classList.remove('hidden');
+  }
+
+  function setStudioDomain(domain) {
+    if (!els.studioDomain) return;
+    const labels = {
+      things: 'Things · craft props & gear',
+      actors: 'Actors · assemble enemies',
+      events: 'Events · chain triggers',
+      world: 'Worlds · review layouts',
+    };
+    els.studioDomain.textContent = domain
+      ? labels[domain] ?? domain
+      : 'Plaza · walk onto a domain pad';
+    els.studioDomain.dataset.domain = domain ?? 'plaza';
+  }
+
   function showGameOver({ reason, score, kills, waves, time, best }) {
+    hideAllOverlays();
     els.gameover.classList.remove('hidden');
     els.goTitle.textContent = 'Game Over';
     els.goFlavor.textContent =
@@ -82,11 +116,14 @@ export function createHUD() {
   return {
     showMenu,
     showHud,
+    showSetup,
+    showStudio,
     showGameOver,
     update,
     showCallout,
     hideCallout,
     setHintVisible,
+    setStudioDomain,
     els,
   };
 }
